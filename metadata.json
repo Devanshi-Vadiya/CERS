@@ -1,0 +1,9 @@
+{
+  "name": "CERS+",
+  "description": "Community Emergency Response System - A smart, fast, multi-channel emergency support system designed to save lives during the Golden Hour.",
+  "requestFramePermissions": [
+    "geolocation",
+    "microphone",
+    "camera"
+  ]
+}
