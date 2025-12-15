@@ -2,8 +2,12 @@ import React, { useState, useEffect } from 'react';
 import SOSButton from './SOSButton';
 import ActiveEmergency from './ActiveEmergency';
 import ChatAssistant from './ChatAssistant';
-import { AppMode, AppTab, EmergencyType, UserProfile } from '../../types';
-import { Home, MessageSquare, User, Phone, Settings, Shield, ChevronRight, Bell, Moon, Lock, LogOut, ToggleLeft, ToggleRight, Smartphone, Eye, Download, Edit2, Save, X, Plus, Trash2, Check, AlertTriangle, Loader2 } from 'lucide-react';
+import { AppTab, EmergencyType, UserProfile } from '../types'../types
+import { 
+  MessageSquare, User, Phone, Settings, Shield, 
+  ChevronRight, Bell, Moon, Lock, ToggleLeft, ToggleRight, 
+  Smartphone, Edit2, Save, X, Check, Download, Home
+} from 'lucide-react';
 import { useEmergencySystem } from '../contexts/EmergencyContext';
 
 interface GeneralAppProps {
@@ -32,6 +36,11 @@ const GeneralApp: React.FC<GeneralAppProps> = ({ onLogout }) => {
     theme: 'Dark'
   });
 
+  // Safety check to prevent crash on logout
+  if (!currentUser) {
+      return null;
+  }
+
   const user = currentUser as UserProfile;
   const myActiveEmergency = activeEmergencies.find(e => e.userId === currentUser?.id && e.status !== 'resolved');
 
@@ -53,7 +62,7 @@ const GeneralApp: React.FC<GeneralAppProps> = ({ onLogout }) => {
   };
 
   const handleEmergencyUpdate = (type: EmergencyType | null) => {
-    if (myActiveEmergency && type) {
+    if (myActiveEmergency) {
       updateEmergencyType(myActiveEmergency.id, type);
     }
   };
@@ -97,7 +106,7 @@ const GeneralApp: React.FC<GeneralAppProps> = ({ onLogout }) => {
   const updateMedicalField = (field: string, value: string) => {
     setEditForm(prev => ({
       ...prev,
-      medicalInfo: { ...prev.medicalInfo!, [field]: value }
+      medicalInfo: { ...(prev.medicalInfo || { bloodGroup: '', allergies: '', conditions: '', medications: '' }), [field]: value }
     }));
   };
 
@@ -215,7 +224,7 @@ const GeneralApp: React.FC<GeneralAppProps> = ({ onLogout }) => {
                         <div className="flex flex-col gap-1">
                            <span className="text-gray-400 text-xs">Blood Group</span>
                            <input 
-                              value={editForm.medicalInfo?.bloodGroup} 
+                              value={editForm.medicalInfo?.bloodGroup || ''} 
                               onChange={(e) => updateMedicalField('bloodGroup', e.target.value)}
                               className="bg-black/20 border border-gray-600 rounded p-2 text-white" 
                            />
@@ -223,7 +232,7 @@ const GeneralApp: React.FC<GeneralAppProps> = ({ onLogout }) => {
                         <div className="flex flex-col gap-1">
                            <span className="text-gray-400 text-xs">Conditions</span>
                            <input 
-                              value={editForm.medicalInfo?.conditions} 
+                              value={editForm.medicalInfo?.conditions || ''} 
                               onChange={(e) => updateMedicalField('conditions', e.target.value)}
                               className="bg-black/20 border border-gray-600 rounded p-2 text-white" 
                            />
@@ -231,7 +240,7 @@ const GeneralApp: React.FC<GeneralAppProps> = ({ onLogout }) => {
                         <div className="flex flex-col gap-1">
                            <span className="text-gray-400 text-xs">Medications</span>
                            <input 
-                              value={editForm.medicalInfo?.medications} 
+                              value={editForm.medicalInfo?.medications || ''} 
                               onChange={(e) => updateMedicalField('medications', e.target.value)}
                               className="bg-black/20 border border-gray-600 rounded p-2 text-white" 
                            />
@@ -239,7 +248,7 @@ const GeneralApp: React.FC<GeneralAppProps> = ({ onLogout }) => {
                         <div className="flex flex-col gap-1">
                            <span className="text-gray-400 text-xs">Allergies</span>
                            <input 
-                              value={editForm.medicalInfo?.allergies} 
+                              value={editForm.medicalInfo?.allergies || ''} 
                               onChange={(e) => updateMedicalField('allergies', e.target.value)}
                               className="bg-black/20 border border-gray-600 rounded p-2 text-white" 
                            />
@@ -382,182 +391,119 @@ const GeneralApp: React.FC<GeneralAppProps> = ({ onLogout }) => {
         <div className="pt-4">
           <button 
             onClick={handleLogoutRequest}
-            className="w-full py-4 bg-red-600/10 text-red-500 font-bold rounded-xl border border-red-600/30 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2"
+            className="w-full py-4 bg-red-600/10 text-red-500 font-bold rounded-xl hover:bg-red-600/20"
           >
-            <LogOut size={20} />
-            LOGOUT
+             Sign Out
           </button>
-          <p className="text-center text-xs text-gray-600 mt-4">
-            Version 2.5.0 • CERS+ Emergency Systems
-          </p>
         </div>
       </div>
+    </div>
+  );
 
-      {/* Logout Confirmation Dialog */}
-      {showLogoutConfirm && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6">
-            <div className="bg-[#2f3640] rounded-2xl p-6 w-full max-w-sm border border-red-500/50 shadow-2xl animate-in fade-in zoom-in-95">
+  // --- Main Render ---
+
+  // If in active emergency mode (and dispatching animation is done)
+  if (myActiveEmergency && !isDispatching) {
+    return (
+      <ActiveEmergency 
+        type={myActiveEmergency.type} 
+        onClose={handleEmergencyEnd}
+        onUpdateType={handleEmergencyUpdate}
+        onLogout={handleLogoutRequest}
+      />
+    );
+  }
+
+  // If currently dispatching, show splash screen
+  if (isDispatching) {
+     return (
+        <div className="h-screen w-full bg-emergency flex flex-col items-center justify-center animate-in fade-in duration-300">
+           <div className="w-24 h-24 rounded-full border-4 border-white border-t-transparent animate-spin mb-6"></div>
+           <h2 className="text-4xl font-black text-white uppercase tracking-tighter animate-pulse">Alerting...</h2>
+           <p className="text-white/80 mt-2 font-bold">Acquiring Satellites & Responders</p>
+        </div>
+     );
+  }
+
+  return (
+    <div className="flex flex-col h-screen bg-charcoal text-white relative">
+       
+       {/* Tab Content */}
+       <div className="flex-1 overflow-hidden relative">
+          {currentTab === AppTab.HOME && renderHome()}
+          {currentTab === AppTab.GUIDE && <ChatAssistant />}
+          {currentTab === AppTab.PROFILE && renderProfile()}
+          {currentTab === AppTab.SETTINGS && renderSettings()}
+       </div>
+
+       {/* Bottom Navigation */}
+       <div className="h-16 bg-[#2f3640] border-t border-gray-700 flex justify-around items-center px-2 shrink-0 z-50">
+          <NavButton 
+            active={currentTab === AppTab.HOME} 
+            icon={<Home size={24} />} 
+            label="Home" 
+            onClick={() => setCurrentTab(AppTab.HOME)} 
+          />
+          <NavButton 
+            active={currentTab === AppTab.GUIDE} 
+            icon={<MessageSquare size={24} />} 
+            label="Assistant" 
+            onClick={() => setCurrentTab(AppTab.GUIDE)} 
+          />
+          <NavButton 
+            active={currentTab === AppTab.PROFILE} 
+            icon={<User size={24} />} 
+            label="Profile" 
+            onClick={() => setCurrentTab(AppTab.PROFILE)} 
+          />
+          <NavButton 
+            active={currentTab === AppTab.SETTINGS} 
+            icon={<Settings size={24} />} 
+            label="Settings" 
+            onClick={() => setCurrentTab(AppTab.SETTINGS)} 
+          />
+       </div>
+
+       {/* Logout Confirmation Overlay */}
+       {showLogoutConfirm && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-in fade-in">
+            <div className="bg-[#2f3640] rounded-2xl p-6 w-full max-w-sm border border-red-500/50 shadow-2xl">
               <div className="flex flex-col items-center text-center mb-6">
                  <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mb-4 text-red-500">
                     <Shield size={24} />
                  </div>
-                 <h3 className="text-xl font-bold text-white mb-2">Warning: Active Emergency</h3>
-                 <p className="text-gray-400 text-sm">You have an active SOS alert. Logging out will stop real-time tracking updates for responders.</p>
+                 <h3 className="text-xl font-bold text-white mb-2">Confirm Logout</h3>
+                 <p className="text-gray-400 text-sm">
+                   {myActiveEmergency 
+                     ? "WARNING: You have an active SOS. Logging out will stop live tracking for responders." 
+                     : "Are you sure you want to log out?"}
+                 </p>
               </div>
               <div className="flex gap-3">
-                 <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-3 bg-gray-700 rounded-xl font-bold text-white hover:bg-gray-600">Cancel</button>
-                 <button onClick={() => { logoutUser(); onLogout(); }} className="flex-1 py-3 bg-red-600 rounded-xl font-bold text-white hover:bg-red-700">Logout Anyway</button>
+                 <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-3 bg-gray-700 rounded-xl font-bold text-white hover:bg-gray-600 active:scale-95">Cancel</button>
+                 <button 
+                   onClick={() => { setShowLogoutConfirm(false); logoutUser(); onLogout(); }} 
+                   className="flex-1 py-3 bg-red-600 rounded-xl font-bold text-white hover:bg-red-700 active:scale-95"
+                 >
+                   Logout
+                 </button>
               </div>
             </div>
           </div>
         )}
     </div>
   );
-
-  // Full Screen Emergency Overlay with Priority
-  if (isDispatching) {
-     return (
-       <div className="fixed inset-0 z-[100] bg-charcoal flex items-center justify-center flex-col gap-6 animate-in fade-in duration-300">
-          <div className="relative">
-             <div className="absolute inset-0 bg-emergency/30 rounded-full animate-ping"></div>
-             <div className="w-20 h-20 bg-[#2f3640] border-4 border-emergency border-t-transparent rounded-full animate-spin relative z-10"></div>
-          </div>
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl font-black text-white uppercase tracking-wider animate-pulse">Locating...</h2>
-            <p className="text-gray-400 text-sm font-bold">Acquiring High-Precision GPS</p>
-          </div>
-       </div>
-     );
-  }
-
-  if (myActiveEmergency) {
-    return (
-      <div className="fixed inset-0 z-50 bg-charcoal">
-         <ActiveEmergency 
-            type={myActiveEmergency.type} 
-            onClose={handleEmergencyEnd} 
-            onUpdateType={handleEmergencyUpdate}
-            onLogout={() => { logoutUser(); onLogout(); }}
-         />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-screen bg-charcoal font-sans text-white overflow-hidden">
-      
-      {/* Desktop Sidebar (Visible > md) */}
-      <aside className="hidden md:flex flex-col w-64 bg-[#151b20] border-r border-gray-800 pt-8 pb-4 px-4 z-20">
-        <div className="px-4 mb-8">
-          <h1 className="text-2xl font-black text-white tracking-tighter">
-            CERS<span className="text-emergency">+</span>
-          </h1>
-          <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">Personal Safety</p>
-        </div>
-        
-        <nav className="flex-1 space-y-2">
-          <NavButton 
-            icon={<Home size={20}/>} 
-            label="SOS Dashboard" 
-            active={currentTab === AppTab.HOME} 
-            onClick={() => setCurrentTab(AppTab.HOME)} 
-          />
-          <NavButton 
-            icon={<MessageSquare size={20}/>} 
-            label="First Aid Guide" 
-            active={currentTab === AppTab.GUIDE} 
-            onClick={() => setCurrentTab(AppTab.GUIDE)} 
-          />
-          <NavButton 
-            icon={<User size={20}/>} 
-            label="Medical ID" 
-            active={currentTab === AppTab.PROFILE} 
-            onClick={() => setCurrentTab(AppTab.PROFILE)} 
-          />
-          <NavButton 
-            icon={<Settings size={20}/>} 
-            label="Settings" 
-            active={currentTab === AppTab.SETTINGS} 
-            onClick={() => setCurrentTab(AppTab.SETTINGS)} 
-          />
-        </nav>
-      </aside>
-
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col relative w-full h-full max-w-4xl mx-auto md:max-w-none md:mx-0">
-        
-        {/* Mobile Header */}
-        <header className="md:hidden px-6 py-4 flex justify-between items-center bg-charcoal/90 backdrop-blur sticky top-0 z-10 border-b border-gray-800">
-           <div className="flex items-center gap-2">
-             <div className="w-2 h-2 rounded-full bg-safe animate-pulse"></div>
-             <span className="text-safe font-bold text-xs tracking-wider">SECURE</span>
-           </div>
-           <Settings size={20} className="text-gray-500" onClick={() => setCurrentTab(AppTab.SETTINGS)} />
-        </header>
-
-        {/* Tab Content Render */}
-        <div className="flex-1 overflow-hidden relative">
-          {currentTab === AppTab.HOME && renderHome()}
-          {currentTab === AppTab.GUIDE && <ChatAssistant />}
-          {currentTab === AppTab.PROFILE && renderProfile()}
-          {currentTab === AppTab.SETTINGS && renderSettings()}
-        </div>
-
-        {/* Mobile Bottom Nav (Hidden on Desktop) */}
-        <nav className="md:hidden bg-[#151b20] border-t border-gray-800 px-6 py-3 flex justify-between items-center z-50 pb-safe">
-            <MobileNavButton 
-              icon={<Home size={24} />} 
-              label="SOS" 
-              active={currentTab === AppTab.HOME} 
-              onClick={() => setCurrentTab(AppTab.HOME)}
-              color="text-emergency"
-            />
-            <MobileNavButton 
-              icon={<MessageSquare size={24} />} 
-              label="Guide" 
-              active={currentTab === AppTab.GUIDE} 
-              onClick={() => setCurrentTab(AppTab.GUIDE)}
-              color="text-trust"
-            />
-            <MobileNavButton 
-              icon={<User size={24} />} 
-              label="ID" 
-              active={currentTab === AppTab.PROFILE} 
-              onClick={() => setCurrentTab(AppTab.PROFILE)}
-              color="text-white"
-            />
-            <MobileNavButton 
-              icon={<Settings size={24} />} 
-              label="Menu" 
-              active={currentTab === AppTab.SETTINGS} 
-              onClick={() => setCurrentTab(AppTab.SETTINGS)}
-              color="text-gray-400"
-            />
-        </nav>
-      </main>
-    </div>
-  );
 };
 
-// Helper Components
-const NavButton = ({ icon, label, active, onClick }: any) => (
+const NavButton = ({ active, icon, label, onClick }: any) => (
   <button 
-    onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm
-      ${active ? 'bg-gray-800 text-white shadow-md' : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-200'}`}
+    onClick={() => { if(navigator.vibrate) navigator.vibrate(20); onClick(); }}
+    className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-all duration-300 ${active ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
   >
-    {icon}
-    {label}
-  </button>
-);
-
-const MobileNavButton = ({ icon, label, active, onClick, color }: any) => (
-  <button 
-    onClick={onClick}
-    className={`flex flex-col items-center gap-1 transition-colors ${active ? color : 'text-gray-600'}`}
-  >
-    {React.cloneElement(icon, { strokeWidth: active ? 2.5 : 2 })}
-    <span className="text-[10px] font-bold">{label}</span>
+    <div className={`p-1 rounded-xl transition-all ${active ? 'bg-white/10 -translate-y-1' : ''}`}>
+      {icon}
+    </div>
+    <span className={`text-[10px] font-bold ${active ? 'opacity-100' : 'opacity-0 scale-0'} transition-all duration-300`}>{label}</span>
   </button>
 );
 

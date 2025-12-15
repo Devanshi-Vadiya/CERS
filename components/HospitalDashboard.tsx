@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ClipboardList, Package, UserCheck, Search, LogOut, Phone, Inbox, Ambulance, CheckCircle, Video, Loader2, Filter, ChevronDown, Download, Plus
 } from 'lucide-react';
 import { useEmergencySystem } from '../contexts/EmergencyContext';
-import { HospitalProfile } from '../../types';
+import { HospitalProfile } from '../types
 
 interface HospitalDashboardProps {
   onLogout?: () => void;
@@ -50,6 +50,11 @@ const HospitalDashboard: React.FC<HospitalDashboardProps> = ({ onLogout }) => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const prevIncidentCount = useRef(0);
 
+  // Safety check to prevent crash on logout
+  if (!currentUser || currentUser.role !== 'hospital') {
+      return null;
+  }
+  
   const hospital = currentUser as HospitalProfile;
 
   // Filter incidents
@@ -58,11 +63,11 @@ const HospitalDashboard: React.FC<HospitalDashboardProps> = ({ onLogout }) => {
       (e.status === 'active' || e.assignedHospitalId === hospital.id)
   );
 
-  // Search Logic
+  // Search Logic (Fixed null crash)
   const filteredIncidents = liveIncidents.filter(inc => 
-    inc.userProfile.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    inc.type?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    inc.location.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (inc.userProfile.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (inc.type?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (inc.location.address || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     inc.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 

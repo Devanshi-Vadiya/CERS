@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { EmergencyType, VideoEvidence, UserProfile } from '../../types';
-import { EMERGENCY_TYPES } from '../../constants';
+import { EmergencyType, VideoEvidence, UserProfile } from '../types';
+import { EMERGENCY_TYPES } from '../constants';
 import TrackingMap from './TrackingMap';
 import AmbulanceCountdown from './AmbulanceCountdown';
 import VideoRecorder from './VideoRecorder';
@@ -10,7 +10,7 @@ import { CheckCircle, XCircle, Phone, MessageSquare, Mic, Shield, HeartPulse, Ca
 interface ActiveEmergencyProps {
   type: EmergencyType | null;
   onClose: () => void;
-  onUpdateType?: (type: EmergencyType) => void;
+  onUpdateType?: (type: EmergencyType | null) => void;
   onLogout?: () => void;
 }
 
@@ -175,7 +175,7 @@ const ActiveEmergency: React.FC<ActiveEmergencyProps> = ({ type, onClose, onUpda
       <div className={`${type.color} p-4 pt-6 rounded-b-3xl shadow-2xl z-20 shrink-0 transition-all duration-500 ${!videoCollapsed && showVideo ? 'pb-4' : ''}`}>
         <div className="flex justify-between items-start mb-2">
            <div>
-              <button onClick={() => { handleVibrate(); onUpdateType && onUpdateType(null as any); }} className="flex items-center gap-1 text-white/80 text-xs font-bold uppercase tracking-widest hover:text-white mb-1">
+              <button onClick={() => { handleVibrate(); onUpdateType && onUpdateType(null); }} className="flex items-center gap-1 text-white/80 text-xs font-bold uppercase tracking-widest hover:text-white mb-1">
                  <ArrowLeft size={12} /> Change Type
               </button>
               <h1 className="text-2xl md:text-3xl font-black text-white">{type.name}</h1>
@@ -304,6 +304,37 @@ const ActiveEmergency: React.FC<ActiveEmergencyProps> = ({ type, onClose, onUpda
                  </button>
               </div>
            </div>
+
+           {/* Dos and Don'ts Section */}
+           <div className="grid grid-cols-2 gap-3 mt-4 animate-in slide-in-from-bottom duration-500 delay-150">
+              <div className="bg-green-900/10 border border-green-500/20 p-4 rounded-xl">
+                 <h4 className="text-green-400 font-bold text-sm mb-3 flex items-center gap-2 uppercase tracking-wider">
+                    <CheckCircle size={16} /> Do
+                 </h4>
+                 <ul className="text-sm space-y-2 text-gray-300">
+                    {(type.do || []).map((d, i) => (
+                       <li key={i} className="flex items-start gap-2 leading-tight">
+                          <div className="min-w-[4px] h-[4px] rounded-full bg-green-500 mt-1.5 shrink-0"></div>
+                          <span>{d}</span>
+                       </li>
+                    ))}
+                 </ul>
+              </div>
+              
+              <div className="bg-red-900/10 border border-red-500/20 p-4 rounded-xl">
+                 <h4 className="text-red-400 font-bold text-sm mb-3 flex items-center gap-2 uppercase tracking-wider">
+                    <XCircle size={16} /> Don't
+                 </h4>
+                 <ul className="text-sm space-y-2 text-gray-300">
+                    {(type.dont || []).map((d, i) => (
+                       <li key={i} className="flex items-start gap-2 leading-tight">
+                          <div className="min-w-[4px] h-[4px] rounded-full bg-red-500 mt-1.5 shrink-0"></div>
+                          <span>{d}</span>
+                       </li>
+                    ))}
+                 </ul>
+              </div>
+           </div>
         </div>
       </div>
 
@@ -319,8 +350,8 @@ const ActiveEmergency: React.FC<ActiveEmergencyProps> = ({ type, onClose, onUpda
                  <p className="text-gray-400 text-sm">You have an active SOS alert. Logging out will stop real-time tracking updates for responders.</p>
               </div>
               <div className="flex gap-3">
-                 <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-3 bg-gray-700 rounded-xl font-bold text-white hover:bg-gray-600 active:scale-95">Cancel</button>
-                 <button onClick={confirmLogout} className="flex-1 py-3 bg-red-600 rounded-xl font-bold text-white hover:bg-red-700 active:scale-95">Logout Anyway</button>
+                 <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-3 bg-gray-700 rounded-xl font-bold text-white hover:bg-gray-600 active:scale-95 transition-all">Cancel</button>
+                 <button onClick={confirmLogout} className="flex-1 py-3 bg-red-600 rounded-xl font-bold text-white hover:bg-red-700 active:scale-95 transition-all">Logout Anyway</button>
               </div>
             </div>
           </div>

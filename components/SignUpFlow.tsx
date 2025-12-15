@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowLeft, User, Phone, Mail, Lock, Heart, Shield, CheckCircle, Calendar, Plus, Trash2 } from 'lucide-react';
-import { UserProfile } from '../../types';
+import { ArrowLeft, User, Phone, Mail, Lock, Heart, Shield, CheckCircle, Calendar, Plus, Trash2, Loader2 } from 'lucide-react';
+import { UserProfile } from '../types
 import { useEmergencySystem } from '../contexts/EmergencyContext';
 
 interface SignUpFlowProps {
@@ -11,6 +11,8 @@ interface SignUpFlowProps {
 const SignUpFlow: React.FC<SignUpFlowProps> = ({ onBack, onComplete }) => {
   const { registerUser } = useEmergencySystem();
   const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const [formData, setFormData] = useState<Partial<UserProfile>>({
     role: 'general',
     medicalInfo: { bloodGroup: '', allergies: 'None', conditions: 'None', medications: 'None' },
@@ -23,7 +25,8 @@ const SignUpFlow: React.FC<SignUpFlowProps> = ({ onBack, onComplete }) => {
     else handleSubmit();
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
     const newUser: UserProfile = {
       id: `USR-${Math.floor(Math.random() * 10000)}`,
       name: formData.name || 'Unknown',
@@ -34,7 +37,11 @@ const SignUpFlow: React.FC<SignUpFlowProps> = ({ onBack, onComplete }) => {
       emergencyContacts: formData.emergencyContacts,
       permissions: formData.permissions
     };
-    registerUser(newUser);
+    
+    // Await registration to ensure state is updated
+    await registerUser(newUser);
+    
+    setIsSubmitting(false);
     onComplete();
   };
 
@@ -211,9 +218,10 @@ const SignUpFlow: React.FC<SignUpFlowProps> = ({ onBack, onComplete }) => {
         <div className="mt-auto pt-8">
            <button 
              onClick={handleNext}
-             className="w-full py-4 bg-emergency rounded-xl font-bold text-lg hover:bg-red-600 transition-colors shadow-lg shadow-red-900/20"
+             disabled={isSubmitting}
+             className={`w-full py-4 bg-emergency rounded-xl font-bold text-lg hover:bg-red-600 transition-colors shadow-lg shadow-red-900/20 flex items-center justify-center gap-2 ${isSubmitting ? 'opacity-80' : ''}`}
            >
-             {step === 4 ? 'Complete Sign Up' : 'Next Step'}
+             {isSubmitting ? <Loader2 className="animate-spin" /> : step === 4 ? 'Complete Sign Up' : 'Next Step'}
            </button>
         </div>
       </div>

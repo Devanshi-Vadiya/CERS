@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, Loader2 } from 'lucide-react';
 import { getMedicalAdviceStream } from '../services/geminiService';
-import { ChatMessage } from '../../types';
+import { ChatMessage } from '../types
 
 const ChatAssistant: React.FC = () => {
   const [input, setInput] = useState('');

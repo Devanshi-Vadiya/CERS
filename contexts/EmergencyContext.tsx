@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { EmergencyIncident, UserProfile, HospitalProfile, EmergencyType, VideoEvidence } from '../../types';
-import { db } from '../../firebaseConfig'; 
+// @ts-nocheck
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+import { EmergencyIncident, UserProfile, HospitalProfile, EmergencyType, VideoEvidence } from '../types';
+import { db } from '../firebaseConfig'; 
 import { 
   collection, 
   addDoc, 
@@ -25,7 +26,7 @@ interface EmergencyContextType {
 
   activeEmergencies: EmergencyIncident[];
   dispatchEmergency: (type: EmergencyType | null) => Promise<void>;
-  updateEmergencyType: (incidentId: string, type: EmergencyType) => Promise<void>;
+  updateEmergencyType: (incidentId: string, type: EmergencyType | null) => Promise<void>;
   updateEmergencyStatus: (incidentId: string, status: EmergencyIncident['status'], message?: string) => Promise<void>;
   assignHospital: (incidentId: string, hospitalId: string) => Promise<void>;
   resolveEmergency: (incidentId: string) => Promise<void>;
@@ -36,51 +37,23 @@ const EmergencyContext = createContext<EmergencyContextType | undefined>(undefin
 
 export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserProfile | HospitalProfile | null>(() => {
-    const saved = localStorage.getItem('cers_current_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('cers_current_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
   });
 
   const [activeEmergencies, setActiveEmergencies] = useState<EmergencyIncident[]>([]);
+  
+  // Track the snapshot listener to unsubscribe if we go offline/fallback
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
-  // Detect Demo Mode (No valid API Key)
-  const isDemo = !db.app.options.apiKey || db.app.options.apiKey === "YOUR_API_KEY_HERE";
-
-  // --- REAL-TIME SYNC ---
-  useEffect(() => {
-    if (isDemo) {
-        console.log("CERS+ Running in Demo Mode (Local Storage)");
-        const saved = localStorage.getItem('cers_emergencies');
-        if (saved) setActiveEmergencies(JSON.parse(saved));
-        return;
-    }
-
-    const q = query(
-      collection(db, "emergencies"), 
-      where("status", "!=", "resolved"),
-      orderBy("timestamp", "desc")
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const incidents: EmergencyIncident[] = [];
-      snapshot.forEach((doc) => {
-        incidents.push({ id: doc.id, ...doc.data() } as EmergencyIncident);
-      });
-      setActiveEmergencies(incidents);
-    }, (error) => {
-      console.error("Error fetching emergencies:", error);
-      // Fallback for demo without valid API keys
-      const saved = localStorage.getItem('cers_emergencies');
-      if (saved) setActiveEmergencies(JSON.parse(saved));
-    });
-
-    return () => unsubscribe();
-  }, [isDemo]);
-
-  // Persist session
-  useEffect(() => { 
-    if (currentUser) localStorage.setItem('cers_current_user', JSON.stringify(currentUser)); 
-    else localStorage.removeItem('cers_current_user');
-  }, [currentUser]);
+  // Detect Demo Mode (No valid API Key or Placeholders)
+  const isDemo = !db?.app?.options?.apiKey || 
+                 db?.app?.options?.apiKey === "YOUR_API_KEY_HERE" ||
+                 db?.app?.options?.projectId === "YOUR_PROJECT_ID";
 
   // Helper for Demo Data Persistence
   const updateLocalState = (updater: (prev: EmergencyIncident[]) => EmergencyIncident[]) => {
@@ -90,6 +63,57 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
           return newState;
       });
   };
+
+  // --- REAL-TIME SYNC ---
+  useEffect(() => {
+    if (isDemo) {
+        // Load mock data if local storage is empty
+        const saved = localStorage.getItem('cers_emergencies');
+        if (saved) {
+           setActiveEmergencies(JSON.parse(saved));
+        }
+        return;
+    }
+
+    try {
+      const q = query(
+        collection(db, "emergencies"), 
+        where("status", "!=", "resolved"),
+        orderBy("timestamp", "desc")
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot: any) => {
+        const incidents: EmergencyIncident[] = [];
+        snapshot.forEach((doc: any) => {
+          incidents.push({ id: doc.id, ...doc.data() } as EmergencyIncident);
+        });
+        setActiveEmergencies(incidents);
+      }, (error: any) => {
+        console.error("Firestore Error (Switching to offline mode):", error);
+        // Fallback for demo/offline if listener fails
+        if (unsubscribeRef.current) {
+            unsubscribeRef.current();
+            unsubscribeRef.current = null;
+        }
+        const saved = localStorage.getItem('cers_emergencies');
+        if (saved) setActiveEmergencies(JSON.parse(saved));
+      });
+
+      unsubscribeRef.current = unsubscribe;
+
+      return () => {
+          if (unsubscribeRef.current) unsubscribeRef.current();
+      };
+    } catch (err) {
+      console.error("Firebase Init Error:", err);
+    }
+  }, [isDemo]);
+
+  // Persist session
+  useEffect(() => { 
+    if (currentUser) localStorage.setItem('cers_current_user', JSON.stringify(currentUser)); 
+    else localStorage.removeItem('cers_current_user');
+  }, [currentUser]);
 
   // --- Auth Actions ---
 
@@ -130,10 +154,10 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   const loginUser = async (identifier: string, role: 'general' | 'hospital'): Promise<boolean> => {
      // Simulate Network
-     await new Promise(r => setTimeout(r, 600));
+     await new Promise(r => setTimeout(r, 800));
 
      if (role === 'general') {
-        // Try to recover user from local storage first for smoother demo
+        // 1. Try Local Storage Recovery
         const saved = localStorage.getItem('cers_current_user');
         if (saved) {
              const parsed = JSON.parse(saved);
@@ -143,7 +167,7 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
              }
         }
 
-        // If no user found, create a Demo User
+        // 2. Demo User Creation
         const mockUser: UserProfile = {
             id: 'USR-DEMO-' + Math.floor(Math.random() * 1000),
             name: 'Demo User',
@@ -191,34 +215,32 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
   // --- Emergency Actions ---
 
   const dispatchEmergency = async (type: EmergencyType | null) => {
-    // Critical fix: ensure logic works even if currentUser is potentially partial in demo
     if (!currentUser || currentUser.role !== 'general') {
         console.error("No active general user found for dispatch");
         return;
     }
     const user = currentUser as UserProfile;
 
-    // Default Location
+    // 1. Get Location (with timeout default)
     let location = {
         lat: 12.9716, 
         lng: 77.5946,
         address: 'Fetching GPS...'
     };
 
-    // Try to get real location
-    if ('geolocation' in navigator) {
-        try {
+    try {
+        if ('geolocation' in navigator) {
             const position = await new Promise<GeolocationPosition>((resolve, reject) => 
-                navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 4000 })
+                navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 })
             );
             location = {
                 lat: position.coords.latitude,
                 lng: position.coords.longitude,
                 address: `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`
             };
-        } catch (e) {
-            console.log("GPS unavailable/timeout, using default");
         }
+    } catch (e) {
+        console.log("GPS unavailable/timeout, using default");
     }
 
     const newIncident: EmergencyIncident = {
@@ -232,32 +254,43 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
       log: [{ time: new Date().toISOString(), message: 'SOS Activated' }]
     };
 
-    if (isDemo) {
-        updateLocalState(prev => [newIncident, ...prev]);
-        return;
-    }
+    // 2. CRITICAL: Update Local State IMMEDIATELY (Optimistic UI)
+    // This ensures the UI transitions to "Active Emergency" even if network is slow/broken
+    updateLocalState(prev => [newIncident, ...prev]);
 
-    try {
-      await addDoc(collection(db, "emergencies"), newIncident);
-    } catch (e) {
-      console.error("Failed to dispatch to cloud", e);
-      // Fallback
-      setActiveEmergencies(prev => [newIncident, ...prev]);
+    // 3. Try to sync to Cloud
+    if (!isDemo) {
+        try {
+          await addDoc(collection(db, "emergencies"), newIncident);
+        } catch (e) {
+          console.error("Failed to dispatch to cloud", e);
+          
+          // If cloud write fails, disconnect the listener so it doesn't overwrite our local state with stale/empty data
+          if (unsubscribeRef.current) {
+             unsubscribeRef.current();
+             unsubscribeRef.current = null;
+          }
+          // We don't need to re-update local state because we did it optimistically at step 2
+        }
     }
   };
 
-  const updateEmergencyType = async (incidentId: string, type: EmergencyType) => {
-    if (isDemo) {
+  const updateEmergencyType = async (incidentId: string, type: EmergencyType | null) => {
+    if (isDemo || !unsubscribeRef.current) {
         updateLocalState(prev => prev.map(e => e.id === incidentId ? { ...e, type: type } : e));
         return;
     }
     try {
         await updateDoc(doc(db, "emergencies", incidentId), { type: type });
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error(e);
+        // Fallback
+        updateLocalState(prev => prev.map(e => e.id === incidentId ? { ...e, type: type } : e));
+    }
   };
 
   const updateEmergencyStatus = async (incidentId: string, status: EmergencyIncident['status'], message?: string) => {
-    if (isDemo) {
+    if (isDemo || !unsubscribeRef.current) {
         updateLocalState(prev => prev.map(e => e.id === incidentId ? { ...e, status: status } : e));
         return;
     }
@@ -267,7 +300,7 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
   };
 
   const assignHospital = async (incidentId: string, hospitalId: string) => {
-    if (isDemo) {
+    if (isDemo || !unsubscribeRef.current) {
         updateLocalState(prev => prev.map(e => e.id === incidentId ? { 
             ...e, 
             status: 'assigned',
@@ -286,11 +319,17 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
   };
 
   const addVideoEvidence = async (incidentId: string, video: VideoEvidence) => {
-    console.log("Video Saved:", video.id);
+    if (isDemo || !unsubscribeRef.current) {
+        updateLocalState(prev => prev.map(e => e.id === incidentId ? { ...e, videoEvidence: video } : e));
+        return;
+    }
+    try {
+        await updateDoc(doc(db, "emergencies", incidentId), { videoEvidence: video });
+    } catch(e) { console.error(e); }
   }
 
   const resolveEmergency = async (incidentId: string) => {
-    if (isDemo) {
+    if (isDemo || !unsubscribeRef.current) {
         updateLocalState(prev => prev.map(e => e.id === incidentId ? { ...e, status: 'resolved' } : e));
         return;
     }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Building, User, Mail, Lock, Shield, CheckCircle, Upload, MapPin, Check, Loader2, FileText } from 'lucide-react';
-import { HospitalProfile } from '../../types';
+import { HospitalProfile } from '../types
 import { useEmergencySystem } from '../contexts/EmergencyContext';
 
 interface HospitalSignUpFlowProps {
@@ -13,6 +13,7 @@ const HospitalSignUpFlow: React.FC<HospitalSignUpFlowProps> = ({ onBack, onCompl
   const [step, setStep] = useState(1);
   const [docUploaded, setDocUploaded] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState<Partial<HospitalProfile>>({
     role: 'hospital',
@@ -27,7 +28,8 @@ const HospitalSignUpFlow: React.FC<HospitalSignUpFlowProps> = ({ onBack, onCompl
     else handleSubmit();
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
     const newHospital: HospitalProfile = {
       id: `HOSP-${Math.floor(Math.random() * 10000)}`,
       name: formData.name || 'Unknown Org',
@@ -41,7 +43,11 @@ const HospitalSignUpFlow: React.FC<HospitalSignUpFlowProps> = ({ onBack, onCompl
       resources: formData.resources!,
       status: 'pending' // Requires verification
     };
-    registerHospital(newHospital);
+    
+    // Await to prevent race conditions
+    await registerHospital(newHospital);
+    
+    setIsSubmitting(false);
     onComplete();
   };
 
@@ -197,9 +203,10 @@ const HospitalSignUpFlow: React.FC<HospitalSignUpFlowProps> = ({ onBack, onCompl
         <div className="mt-auto pt-8">
            <button 
              onClick={handleNext}
-             className="w-full py-4 bg-hospital-primary text-white rounded-xl font-bold text-lg hover:bg-blue-900 transition-colors shadow-lg active:scale-95"
+             disabled={isSubmitting}
+             className={`w-full py-4 bg-hospital-primary text-white rounded-xl font-bold text-lg hover:bg-blue-900 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2 ${isSubmitting ? 'opacity-80' : ''}`}
            >
-             {step === 3 ? 'Submit for Verification' : 'Next Step'}
+             {isSubmitting ? <Loader2 className="animate-spin" /> : step === 3 ? 'Submit for Verification' : 'Next Step'}
            </button>
            
            <div className="mt-6 text-center border-t border-gray-200 pt-6">

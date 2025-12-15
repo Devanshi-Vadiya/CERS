@@ -1,6 +1,25 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Safe API key retrieval that works in browsers, Vite, and standard environments
+const getApiKey = () => {
+  try {
+    // Check standard process.env (Node/CRA)
+    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+      return process.env.API_KEY;
+    }
+    // Check Vite specific env
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
+      // @ts-ignore
+      return import.meta.env.VITE_API_KEY;
+    }
+  } catch (e) {
+    console.warn("Error reading environment variables", e);
+  }
+  return ''; // Return empty string if not found (will be handled by API error)
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export const getMedicalAdviceStream = async (
   query: string, 
@@ -27,7 +46,6 @@ export const getMedicalAdviceStream = async (
       ],
       config: {
         systemInstruction: systemInstruction,
-        thinkingConfig: { thinkingBudget: 0 } 
       }
     });
 

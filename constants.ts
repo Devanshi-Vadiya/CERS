@@ -1,4 +1,4 @@
-import { EmergencyCategory, EmergencyType, Volunteer } from '../types';
+import { EmergencyCategory, EmergencyType, Volunteer } from './types';
 
 // Updated Palette:
 // Primary Emergency: #FF4757 (Red)

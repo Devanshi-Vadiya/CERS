@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserRole } from '../../types';
+import { UserRole } from '../types
 import { ArrowLeft, User, Lock, Building, Phone, AlertTriangle, Loader2, CheckCircle, Mail, Key, Sparkles } from 'lucide-react';
 import { useEmergencySystem } from '../contexts/EmergencyContext';
 

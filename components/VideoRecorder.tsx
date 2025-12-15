@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Video, Mic, MicOff, StopCircle, RefreshCw, FileVideo, Save, Trash2, Upload, Lock, Smartphone, Camera } from 'lucide-react';
-import { VideoEvidence, LocationData } from '../../types';
+import { VideoEvidence, LocationData } from '../types';
 
 interface VideoRecorderProps {
   emergencyId: string;
@@ -76,7 +76,17 @@ const VideoRecorder: React.FC<VideoRecorderProps> = ({ emergencyId, emergencyTyp
   };
 
   const startRecordingProcess = (stream: MediaStream) => {
-    const mediaRecorder = new MediaRecorder(stream);
+    // Use webm for better browser compatibility during recording
+    const options = { mimeType: 'video/webm' };
+    let mediaRecorder;
+    
+    try {
+        mediaRecorder = new MediaRecorder(stream, options);
+    } catch (e) {
+        // Fallback if specific mimeType fails
+        mediaRecorder = new MediaRecorder(stream);
+    }
+
     mediaRecorderRef.current = mediaRecorder;
     chunksRef.current = [];
 
@@ -87,7 +97,8 @@ const VideoRecorder: React.FC<VideoRecorderProps> = ({ emergencyId, emergencyTyp
     };
 
     mediaRecorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: 'video/mp4' });
+      // Create blob with webm type
+      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
       const url = URL.createObjectURL(blob);
       setVideoUrl(url);
       setReviewMode(true);

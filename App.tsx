@@ -5,7 +5,7 @@ import SignUpFlow from './components/SignUpFlow';
 import HospitalSignUpFlow from './components/HospitalSignUpFlow';
 import GeneralApp from './components/GeneralApp';
 import HospitalDashboard from './components/HospitalDashboard';
-import { AuthState, UserRole } from '../types';
+import { AuthState, UserRole } from './types';
 import { EmergencyProvider } from './contexts/EmergencyContext';
 
 const AppContent: React.FC = () => {
