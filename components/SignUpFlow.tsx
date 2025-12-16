@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, User, Phone, Mail, Lock, Heart, Shield, CheckCircle, Calendar, Plus, Trash2, Loader2 } from 'lucide-react';
-import { UserProfile } from '../types
+import { UserProfile } from '../types';
 import { useEmergencySystem } from '../contexts/EmergencyContext';
 
 interface SignUpFlowProps {
