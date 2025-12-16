@@ -1,6 +1,6 @@
 import React from 'react';
-import { EMERGENCY_TYPES } from '../constants
-import { EmergencyType } from '../types
+import { EMERGENCY_TYPES } from '../constants';
+import { EmergencyType } from '../types';
 import { HeartPulse, Car, Brain, Droplets, Flame, Wind, AlertTriangle, HelpCircle } from 'lucide-react';
 
 interface EmergencyGridProps {

@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ClipboardList, Package, UserCheck, Search, LogOut, Phone, Inbox, Ambulance, CheckCircle, Video, Loader2, Filter, ChevronDown, Download, Plus
 } from 'lucide-react';
 import { useEmergencySystem } from '../contexts/EmergencyContext';
-import { HospitalProfile } from '../types
+import { HospitalProfile } from '../types';
 
 interface HospitalDashboardProps {
   onLogout?: () => void;

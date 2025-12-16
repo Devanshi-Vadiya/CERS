@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { MOCK_VOLUNTEERS } from '../constants
-import { LocationData } from '../types
+import { MOCK_VOLUNTEERS } from '../constants';
+import { LocationData } from '../types';
 import { MapPin, Navigation, Siren, Plus, Minus, Crosshair, Layers } from 'lucide-react';
 
 interface TrackingMapProps {

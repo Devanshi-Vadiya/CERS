@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import SOSButton from './SOSButton';
 import ActiveEmergency from './ActiveEmergency';
 import ChatAssistant from './ChatAssistant';
-import { AppTab, EmergencyType, UserProfile } from '../types'../types
+import { AppTab, EmergencyType, UserProfile } from '../types'
 import { 
   MessageSquare, User, Phone, Settings, Shield, 
   ChevronRight, Bell, Moon, Lock, ToggleLeft, ToggleRight, 

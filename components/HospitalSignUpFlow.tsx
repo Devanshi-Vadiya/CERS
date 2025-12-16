@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Building, User, Mail, Lock, Shield, CheckCircle, Upload, MapPin, Check, Loader2, FileText } from 'lucide-react';
-import { HospitalProfile } from '../types
+import { HospitalProfile } from '../types';
 import { useEmergencySystem } from '../contexts/EmergencyContext';
 
 interface HospitalSignUpFlowProps {
