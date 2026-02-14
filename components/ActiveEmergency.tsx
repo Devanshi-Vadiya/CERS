@@ -62,9 +62,9 @@ const ActiveEmergency: React.FC<ActiveEmergencyProps> = ({ type, onClose, onUpda
     if (currentEmergency) {
         addVideoEvidence(currentEmergency.id, video);
     }
-    setTimeout(() => {
-      setVideoCollapsed(true);
-    }, 1500);
+    // Unmount the VideoRecorder so the map + precautions page comes back
+    setShowVideo(false);
+    setVideoCollapsed(false);
   };
 
   // --- PHASE 2: UNSPECIFIED EMERGENCY (Selection Grid) ---
@@ -222,7 +222,7 @@ const ActiveEmergency: React.FC<ActiveEmergencyProps> = ({ type, onClose, onUpda
                         emergencyType={type.name} 
                         location={currentEmergency?.location || {lat:0, lng:0}}
                         onSave={handleVideoSave}
-                        onDiscard={() => { handleVibrate(); setVideoCollapsed(true); }}
+                        onDiscard={() => { handleVibrate(); setShowVideo(false); setVideoCollapsed(false); }}
                     />
                     {/* Expand/Collapse Toggle */}
                     {videoCollapsed && (

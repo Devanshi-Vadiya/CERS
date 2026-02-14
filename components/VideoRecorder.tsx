@@ -141,42 +141,55 @@ const VideoRecorder: React.FC<VideoRecorderProps> = ({ emergencyId, emergencyTyp
   };
 
   // --- REVIEW MODE UI ---
+  // Fixed full-screen overlay so buttons are NEVER clipped by parent container height
   if (reviewMode && videoUrl) {
     return (
-      <div className="h-full w-full bg-black rounded-3xl overflow-hidden relative shadow-2xl border-4 border-green-500 animate-in fade-in flex flex-col">
-         {/* Preview */}
-         <div className="flex-1 relative bg-gray-900">
-            <video src={videoUrl} controls className="w-full h-full object-contain" />
-            <div className="absolute top-4 left-4 bg-black/60 backdrop-blur px-3 py-1 rounded-lg border border-white/20">
-               <div className="flex items-center gap-2 text-white text-xs font-bold">
-                  <Lock size={12} className="text-green-400" />
-                  Evidence Secured
-               </div>
-            </div>
-         </div>
+      <div className="fixed inset-0 z-[200] bg-black flex flex-col animate-in fade-in duration-300">
 
-         {/* Actions */}
-         <div className="p-6 bg-[#2f3640] border-t border-gray-700 space-y-4">
-            <div className="flex items-center justify-between text-white text-sm">
-               <span className="flex items-center gap-2"><Smartphone size={16}/> Saved to Device</span>
-               <span className="flex items-center gap-2 text-gray-400"><Upload size={16}/> Syncing to Cloud...</span>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-               <button 
-                 onClick={onDiscard}
-                 className="flex items-center justify-center gap-2 py-4 rounded-xl bg-gray-700 text-gray-300 font-bold hover:bg-gray-600 active:scale-95 transition-all"
-               >
-                 <Trash2 size={20} /> Discard
-               </button>
-               <button 
-                 onClick={handleSave}
-                 className="flex items-center justify-center gap-2 py-4 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 active:scale-95 transition-all shadow-lg"
-               >
-                 <Save size={20} /> Confirm Save
-               </button>
-            </div>
-         </div>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 bg-[#1E272E] border-b border-green-500/40 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-green-400 font-black text-sm uppercase tracking-widest">Evidence Secured</span>
+          </div>
+          <div className="flex items-center gap-2 text-gray-400 text-xs">
+            <Lock size={12} className="text-green-400" />
+            <span>Tamper-proof recording</span>
+          </div>
+        </div>
+
+        {/* Video Preview */}
+        <div className="flex-1 bg-gray-950 relative overflow-hidden">
+          <video
+            src={videoUrl}
+            controls
+            autoPlay
+            className="w-full h-full object-contain"
+          />
+        </div>
+
+        {/* Actions — always pinned to bottom, never clipped */}
+        <div className="shrink-0 p-5 bg-[#1E272E] border-t border-gray-700 space-y-3">
+          <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+            <span className="flex items-center gap-1.5"><Smartphone size={13}/> Saved to device</span>
+            <span className="flex items-center gap-1.5"><Upload size={13}/> Syncing to cloud...</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={onDiscard}
+              className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-gray-700 text-gray-300 font-bold text-base hover:bg-gray-600 active:scale-95 transition-all"
+            >
+              <Trash2 size={20} /> Discard
+            </button>
+            <button
+              onClick={handleSave}
+              className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-green-500 text-white font-black text-base hover:bg-green-600 active:scale-95 transition-all shadow-xl shadow-green-900/40"
+            >
+              <Save size={20} /> Confirm Save
+            </button>
+          </div>
+        </div>
+
       </div>
     );
   }

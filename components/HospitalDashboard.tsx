@@ -41,6 +41,7 @@ const [resourceCounts, setResourceCounts] = useState({ staff: 0, beds: 0, fleet:
 const [assigningIncident, setAssigningIncident] = useState<any | null>(null);
   const [assignmentForm, setAssignmentForm] = useState({ eta: '', doctor: '' });
 const [dischargingIncident, setDischargingIncident] = useState<any | null>(null);
+const [viewingVideo, setViewingVideo] = useState<any | null>(null); // holds the incident whose video is being viewed
 
 const liveIncidents = useMemo(() => {
   return activeEmergencies.filter(e => {
@@ -493,6 +494,20 @@ const confirmDischarge = async () => {
                   >
                     <Shield size={14} /> Access Medical Profile
                   </button>
+
+                  {/* 🎥 VIDEO EVIDENCE BUTTON — only shows if patient recorded a video */}
+                  {incident.videoEvidence ? (
+                    <button
+                      onClick={() => setViewingVideo(incident)}
+                      className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 px-3 py-2 rounded-lg hover:bg-red-100 transition-all border border-red-100 animate-pulse"
+                    >
+                      <Video size={14} /> View Evidence
+                    </button>
+                  ) : (
+                    <span className="flex items-center gap-2 text-[10px] font-bold text-slate-300 px-3 py-2">
+                      <Video size={12} /> No Video Yet
+                    </span>
+                  )}
                   <span className="text-[10px] font-bold text-slate-400 italic">ETA: {incident.ambulanceEta}</span>
                 </div>
                 <button 
@@ -553,7 +568,17 @@ const confirmDischarge = async () => {
              {!incident.assignedHospitalId ? (
                <button onClick={() => handleAccept(incident.id)} className="px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-100 transition-all">Emergency Accept</button>
              ) : (
-               <button onClick={() => initiateEndEmergency(incident)} className="p-3 text-slate-400 hover:text-red-500 bg-slate-50 rounded-xl transition-all"><XCircle size={24}/></button>
+               <>
+                 {incident.videoEvidence && (
+                   <button
+                     onClick={() => setViewingVideo(incident)}
+                     className="flex items-center gap-2 px-4 py-3 bg-red-50 text-red-600 border border-red-100 rounded-xl font-bold hover:bg-red-100 transition-all text-sm animate-pulse"
+                   >
+                     <Video size={16} /> View Evidence
+                   </button>
+                 )}
+                 <button onClick={() => initiateEndEmergency(incident)} className="p-3 text-slate-400 hover:text-red-500 bg-slate-50 rounded-xl transition-all"><XCircle size={24}/></button>
+               </>
              )}
           </div>
         </div>
@@ -701,6 +726,98 @@ const confirmDischarge = async () => {
   </div>
 )}
     </main>
+
+      {/* ─── 🎥 VIDEO EVIDENCE MODAL ─── */}
+      {viewingVideo && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[120] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#1e293b] rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden border border-slate-700">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center">
+                  <Video className="text-red-400" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-black text-white text-lg">Scene Evidence</h3>
+                  <p className="text-slate-400 text-xs">
+                    Case #{viewingVideo.id.slice(-6).toUpperCase()} 
+                    {' · '}
+                    {viewingVideo.type?.name || 'Emergency'}
+                    {' · '}
+                    {viewingVideo.location?.address}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingVideo(null)}
+                className="p-2 hover:bg-slate-700 rounded-xl transition-colors text-slate-400 hover:text-white"
+              >
+                <XCircle size={24} />
+              </button>
+            </div>
+
+            {/* Video Player */}
+            <div className="bg-black relative">
+              {viewingVideo.videoEvidence?.url ? (
+                <video
+                  src={viewingVideo.videoEvidence.url}
+                  controls
+                  autoPlay
+                  className="w-full max-h-[420px] object-contain"
+                />
+              ) : (
+                <div className="h-64 flex flex-col items-center justify-center text-slate-500">
+                  <Video size={48} className="mb-3 opacity-30" />
+                  <p className="font-bold">Video not available</p>
+                  <p className="text-xs mt-1 text-slate-600">The patient's video may still be uploading</p>
+                </div>
+              )}
+
+              {/* Timestamp overlay */}
+              {viewingVideo.videoEvidence && (
+                <div className="absolute top-3 left-3 bg-black/70 backdrop-blur px-2 py-1 rounded-lg text-[10px] text-white font-mono border border-white/10">
+                  🔴 REC · {new Date(viewingVideo.videoEvidence.timestamp).toLocaleTimeString()}
+                </div>
+              )}
+            </div>
+
+            {/* Evidence Metadata */}
+            <div className="p-6 grid grid-cols-3 gap-4">
+              <div className="bg-slate-800 rounded-2xl p-4 text-center">
+                <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">Duration</p>
+                <p className="text-white font-black text-xl">
+                  {viewingVideo.videoEvidence?.duration
+                    ? `${viewingVideo.videoEvidence.duration}s`
+                    : '—'}
+                </p>
+              </div>
+              <div className="bg-slate-800 rounded-2xl p-4 text-center">
+                <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">Patient</p>
+                <p className="text-white font-black text-sm truncate">
+                  {viewingVideo.userProfile?.name || 'Unknown'}
+                </p>
+              </div>
+              <div className="bg-slate-800 rounded-2xl p-4 text-center">
+                <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">Blood Group</p>
+                <p className="text-red-400 font-black text-xl">
+                  {viewingVideo.userProfile?.medicalInfo?.bloodGroup || '—'}
+                </p>
+              </div>
+            </div>
+
+            {/* Important notice about Blob URL limitation */}
+            <div className="mx-6 mb-6 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-start gap-2">
+              <AlertTriangle size={14} className="text-yellow-400 mt-0.5 shrink-0" />
+              <p className="text-yellow-300 text-[10px] leading-relaxed">
+                <strong>Live Session Video:</strong> This evidence is streamed directly from the patient's device during the active emergency session. 
+                It will not be available after the case is discharged. Download or screenshot if needed for records.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      )}
   </div>
 );
 };
