@@ -13,3 +13,6 @@ root.render(
     <App />
   </React.StrictMode>
 );
+console.log('Forcing Vite Full Reload...');
+
+console.log('Forcing Vite AI SDK Reload...');
