@@ -12,7 +12,7 @@ interface VideoRecorderProps {
 
 const VideoRecorder: React.FC<VideoRecorderProps> = ({ emergencyId, emergencyType, location, onSave, onDiscard }) => {
   const [recording, setRecording] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(60);
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [cameraError, setCameraError] = useState(false);
@@ -35,15 +35,13 @@ const VideoRecorder: React.FC<VideoRecorderProps> = ({ emergencyId, emergencyTyp
   // Timer Logic
   useEffect(() => {
     let interval: any;
-    if (recording && timeLeft > 0) {
+    if (recording) {
       interval = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
+        setElapsedTime((prev) => prev + 1);
       }, 1000);
-    } else if (timeLeft === 0 && recording) {
-      stopRecording();
     }
     return () => clearInterval(interval);
-  }, [recording, timeLeft]);
+  }, [recording]);
 
   const startCamera = async () => {
     try {
@@ -58,8 +56,8 @@ const VideoRecorder: React.FC<VideoRecorderProps> = ({ emergencyId, emergencyTyp
         videoRef.current.srcObject = stream;
       }
       
-      // Auto-start recording if not in review mode
-      if (!reviewMode && !recording && timeLeft === 60) {
+      // Auto-start recording exactly once if not in review mode
+      if (!reviewMode && !recording && elapsedTime === 0) {
          startRecordingProcess(stream);
       }
     } catch (err) {
@@ -129,15 +127,31 @@ const VideoRecorder: React.FC<VideoRecorderProps> = ({ emergencyId, emergencyTyp
 
   const handleSave = () => {
     if (videoUrl) {
+        // Explicitly stop the camera streams when saving to ensure it shuts down 
+        // even if the parent component doesn't immediately unmount this view
+        stopCamera();
+        stopRecording();
+        
         onSave({
             id: `VID-${Date.now()}`,
             url: videoUrl,
             timestamp: new Date().toISOString(),
-            duration: 60 - timeLeft,
+            duration: elapsedTime,
             emergencyType,
             location
         });
     }
+  };
+
+  const handleDiscard = () => {
+    // Reset state and completely discard the video
+    setVideoUrl(null);
+    setReviewMode(false);
+    setRecording(false);
+    setElapsedTime(0);
+    // Auto-restart camera (which will then trigger a fresh recording)
+    startCamera();
+    if (onDiscard) onDiscard();
   };
 
   // --- REVIEW MODE UI ---
@@ -176,7 +190,7 @@ const VideoRecorder: React.FC<VideoRecorderProps> = ({ emergencyId, emergencyTyp
           </div>
           <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={onDiscard}
+              onClick={handleDiscard}
               className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-gray-700 text-gray-300 font-bold text-base hover:bg-gray-600 active:scale-95 transition-all"
             >
               <Trash2 size={20} /> Discard
@@ -229,7 +243,7 @@ const VideoRecorder: React.FC<VideoRecorderProps> = ({ emergencyId, emergencyTyp
             <div className="flex items-center gap-3 bg-red-600/20 backdrop-blur px-3 py-1.5 rounded-full border border-red-500/50">
                <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse shadow-[0_0_10px_#ff0000]"></div>
                <span className="font-mono text-red-500 font-black text-lg tracking-widest">
-                  00:{timeLeft < 10 ? '0' : ''}{timeLeft}
+                  {Math.floor(elapsedTime / 60).toString().padStart(2, '0')}:{(elapsedTime % 60).toString().padStart(2, '0')}
                </span>
             </div>
             <span className="text-[10px] text-red-400 font-bold ml-1 flex items-center gap-1">

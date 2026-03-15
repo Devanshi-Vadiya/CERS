@@ -12,7 +12,8 @@ import {
   UserProfile, 
   HospitalProfile, 
   EmergencyType, 
-  VideoEvidence 
+  VideoEvidence,
+  HospitalStats
 } from '../types';
 import { db } from '../firebaseConfig'; 
 import { 
@@ -24,7 +25,9 @@ import {
   query, 
   where, 
   orderBy,
+  getDoc,
   getDocs,
+  setDoc
 } from 'firebase/firestore';
 
 
@@ -32,13 +35,17 @@ import {
 interface EmergencyContextType {
   // --- Auth & Session State ---
   currentUser: UserProfile | HospitalProfile | null;
-  
+
   // --- Enhanced Security Auth Actions ---
-  registerHospital: (hospital: HospitalProfile & { password: string }) => Promise<void>; 
-  updateHospitalStatus: (hospitalId: string, status: 'verified' | 'rejected', reason?: string) => Promise<void>;
-  loginUser: (identifier: string, role: 'general' | 'hospital', password?: string) => Promise<boolean>; 
+  registerHospital: (hospital: HospitalProfile & { password: string }) => Promise<void>;
+  updateHospitalStatus: (
+    hospitalId: string,
+    status: 'verified' | 'rejected' | 'blacklisted',
+    reason?: string
+  ) => Promise<void>;
+  loginUser: (identifier: string, role: 'general' | 'hospital', password?: string) => Promise<boolean>;
   logoutUser: () => void;
-  initiatePasswordReset: () => void; 
+  initiatePasswordReset: () => void;
   sendPasswordReset: (phone: string, newPassword: string) => Promise<void>;
 
   // --- Profile Management ---
@@ -47,14 +54,18 @@ interface EmergencyContextType {
 
   // --- Emergency Operations (Live Sync) ---
   activeEmergencies: EmergencyIncident[];
-  dispatchEmergency: (type: EmergencyType | null) => Promise<void>;
+  dispatchEmergency: (type: EmergencyType | null, isGuest?: boolean) => Promise<void>;
   updateEmergencyType: (incidentId: string, type: EmergencyType | null) => Promise<void>;
+  updateGuestDetails: (incidentId: string, details: Partial<EmergencyIncident>) => Promise<void>;
   updateEmergencyStatus: (incidentId: string, status: EmergencyIncident['status'], message?: string) => Promise<void>;
   assignHospital: (incidentId: string, hospitalId: string, eta: string, extraData?: any) => Promise<void>; 
   rejectEmergency: (incidentId: string) => Promise<void>;
-  resolveEmergency: (incidentId: string) => Promise<void>;
+  resolveEmergency: (incident: EmergencyIncident) => Promise<void>;
   addVideoEvidence: (incidentId: string, video: VideoEvidence) => void;
   updateEmergencyLocation: (incidentId: string, lat: number, lng: number) => Promise<void>;
+  
+  // --- Analytics ---
+  hospitalStats: HospitalStats | null;
 }
 
 const EmergencyContext = createContext<EmergencyContextType | undefined>(undefined);
@@ -71,7 +82,9 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
   });
 
   const [activeEmergencies, setActiveEmergencies] = useState<EmergencyIncident[]>([]);
+  const [hospitalStats, setHospitalStats] = useState<HospitalStats | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  const statsUnsubscribeRef = useRef<(() => void) | null>(null);
   const [loginAttempts, setLoginAttempts] = useState(0);
 
   const isDemo = false;
@@ -118,6 +131,31 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
       console.error("Firebase Connection Error:", err);
     }
   }, [isDemo]);
+
+  // --- REAL-TIME STATS FULL SYNC ---
+  useEffect(() => {
+    if (currentUser && currentUser.role === 'hospital' && !isDemo) {
+      const statsRef = doc(db, 'hospital_stats', currentUser.id);
+      const unsubscribeStats = onSnapshot(statsRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setHospitalStats(docSnap.data() as HospitalStats);
+        } else {
+          setHospitalStats({
+            hospitalId: currentUser.id,
+            averageResponseTime: 0,
+            etaAccuracyPercentage: 100,
+            totalEmergencies: 0,
+            reliabilityScore: 100,
+            lastUpdated: new Date().toISOString()
+          });
+        }
+      });
+      statsUnsubscribeRef.current = unsubscribeStats;
+      return () => unsubscribeStats();
+    } else {
+      setHospitalStats(null);
+    }
+  }, [currentUser, isDemo]);
 
   // Persist session
   useEffect(() => { 
@@ -252,6 +290,11 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
         return false;
       }
 
+      if (hospital.status === 'blacklisted') {
+        alert(`🚫 Account Blacklisted: ${hospital.rejectionReason || "This hospital has been removed from the network."}`);
+        return false;
+      }
+
       setCurrentUser(hospital);
       sessionStorage.setItem("cers_current_user", JSON.stringify(hospital));
       return true;
@@ -264,7 +307,7 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   const updateHospitalStatus = async (
     hospitalId: string, 
-    status: 'verified' | 'rejected', 
+    status: 'verified' | 'rejected' | 'blacklisted', 
     reason?: string
   ) => {
     try {
@@ -276,7 +319,7 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
         updatedAt: new Date().toISOString() 
       };
       
-      if (status === 'rejected' && reason) {
+      if ((status === 'rejected' || status === 'blacklisted') && reason) {
         updateData.rejectionReason = reason;
       }
 
@@ -301,7 +344,7 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
   // --- Emergency Actions ---
 
   // ✅ UPDATED: Gets real GPS + reverse geocodes to exact area name via OpenStreetMap
-  const dispatchEmergency = async (type: EmergencyType | null) => {
+  const dispatchEmergency = async (type: EmergencyType | null, isGuest: boolean = false) => {
     if (!currentUser || currentUser.role !== 'general') return;
 
     // Step 1: Get real GPS coordinates from the device
@@ -352,7 +395,8 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
       type,
       userProfile: currentUser,
       location: { lat: coords.lat, lng: coords.lng, address },
-      log: [{ time: new Date().toISOString(), message: 'SOS Activated' }]
+      log: [{ time: new Date().toISOString(), message: 'SOS Activated' }],
+      isGuestReport: isGuest
     };
 
     if (!isDemo) {
@@ -362,13 +406,112 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   };
 
-  const resolveEmergency = async (incidentId: string) => {
-    updateLocalState(prev => prev.filter(e => e.id !== incidentId));
+  const resolveEmergency = async (incident: EmergencyIncident) => {
+    updateLocalState(prev => prev.filter(e => e.id !== incident.id));
+    
     if (!isDemo) {
-      await updateDoc(doc(db, "emergencies", incidentId), { 
+      const resolvedAt = new Date().toISOString();
+      const arrivedAtTime = incident.arrivedAt || resolvedAt;
+      
+      // Update incident to resolved
+      await updateDoc(doc(db, "emergencies", incident.id), { 
         status: 'resolved',
-        endedAt: new Date().toISOString()
+        endedAt: resolvedAt
       });
+
+      // Calculate Reliability Metrics if it was assigned to a hospital
+      if (incident.assignedHospitalId && incident.timestamp && arrivedAtTime && incident.ambulanceEta) {
+        try {
+          // Parse ETA (e.g. "8 min" -> 8)
+          const targetEtaString = incident.ambulanceEta.toLowerCase().replace(/[^0-9]/g, '');
+          const targetEta = parseInt(targetEtaString, 10) || 15; // fallback 15 mins
+          
+          const timeTriggered = new Date(incident.timestamp).getTime();
+          const timeArrived = new Date(arrivedAtTime).getTime();
+          
+          // Actual response time in minutes
+          const actualResponseTime = Math.max(1, Math.round((timeArrived - timeTriggered) / 60000));
+          
+          // Accuracy: difference between real and target (negative means they were faster than ETA)
+          const etaAccuracy = actualResponseTime - targetEta;
+
+          // 1. Save individual response record
+          await addDoc(collection(db, "hospital_response_history"), {
+            sosId: incident.id,
+            hospitalId: incident.assignedHospitalId,
+            sosTriggeredAt: incident.timestamp,
+            etaSetByHospital: incident.ambulanceEta,
+            ambulanceArrivedAt: arrivedAtTime,
+            actualResponseTime,
+            etaAccuracy
+          });
+
+          // 2. Fetch and aggregate hospital stats
+          const statsRef = doc(db, "hospital_stats", incident.assignedHospitalId);
+          const statsSnap = await getDoc(statsRef);
+          
+          let prevStats = {
+            totalEmergencies: 0,
+            averageResponseTime: 0,
+            etaAccuracyPercentage: 0,
+            reliabilityScore: 100
+          };
+
+          if (statsSnap.exists()) {
+             prevStats = statsSnap.data() as any;
+          }
+
+          const newTotal = prevStats.totalEmergencies + 1;
+          const newAvgResponse = ((prevStats.averageResponseTime * prevStats.totalEmergencies) + actualResponseTime) / newTotal;
+          
+          // Calculate score based on user strict formula
+          // Reliability Score = (0.4 * ETA Accuracy) + (0.4 * Response Speed) + (0.2 * Completion Rate)
+          
+          let latestEtaAccuracyScore = 100;
+          if (etaAccuracy > 0) {
+            // They were late! Severe penalty: drop accuracy score quickly
+            // e.g. 1 min late = 80%, 2 mins late = 60%, 5+ mins late = 0%
+            latestEtaAccuracyScore = Math.max(0, 100 - (etaAccuracy * 20));
+          }
+
+          let latestSpeedScore = 100;
+          if (actualResponseTime > 15) {
+             // Slower than golden 15 min rule drops speed score
+             latestSpeedScore = Math.max(0, 100 - ((actualResponseTime - 15) * 5));
+          }
+
+          const latestCompletionScore = 100; // Case was successfully resolved
+          
+          const latestReliabilityScore = (0.4 * latestEtaAccuracyScore) + (0.4 * latestSpeedScore) + (0.2 * latestCompletionScore);
+          
+          let score = prevStats.reliabilityScore;
+          
+          // Recalculate rolling score
+          if (newTotal === 1) {
+            score = latestReliabilityScore;
+          } else {
+             const baseWeight = 0.8;
+             const latestWeight = 0.2; // New emergencies impact the score a bit faster
+             score = (prevStats.reliabilityScore * baseWeight) + (latestReliabilityScore * latestWeight);
+          }
+
+          // Track overall accuracy % (How often are they on time?)
+          const wasOnTime = etaAccuracy <= 0 ? 100 : 0; 
+          const newAvgAccuracy = ((prevStats.etaAccuracyPercentage * prevStats.totalEmergencies) + wasOnTime) / newTotal;
+
+          await setDoc(statsRef, {
+            hospitalId: incident.assignedHospitalId,
+            totalEmergencies: newTotal,
+            averageResponseTime: Math.round(newAvgResponse * 10) / 10,
+            etaAccuracyPercentage: Math.round(newAvgAccuracy * 10) / 10,
+            reliabilityScore: Math.round(score),
+            lastUpdated: new Date().toISOString()
+          }, { merge: true });
+
+        } catch (error) {
+           console.error("Error computing hospital reliability metrics:", error);
+        }
+      }
     }
   };
 
@@ -384,8 +527,16 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
   };
 
   const updateEmergencyStatus = async (incidentId: string, status: any) => {
-    updateLocalState(prev => prev.map(e => e.id === incidentId ? { ...e, status } : e));
-    if (!isDemo) await updateDoc(doc(db, "emergencies", incidentId), { status });
+    const updatePayload: any = { status };
+    if (status === 'arrived') {
+       const arrivedTime = new Date().toISOString();
+       updatePayload.arrivedAt = arrivedTime;
+       updateLocalState(prev => prev.map(e => e.id === incidentId ? { ...e, status, arrivedAt: arrivedTime } : e));
+    } else {
+       updateLocalState(prev => prev.map(e => e.id === incidentId ? { ...e, status } : e));
+    }
+
+    if (!isDemo) await updateDoc(doc(db, "emergencies", incidentId), updatePayload);
   };
 
   const updateEmergencyLocation = async (incidentId: string, lat: number, lng: number) => {
@@ -398,6 +549,11 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   const updateEmergencyType = async (incidentId: string, type: EmergencyType | null) => {
     if (!isDemo) await updateDoc(doc(db, 'emergencies', incidentId), { type });
+  };
+
+  const updateGuestDetails = async (incidentId: string, details: Partial<EmergencyIncident>) => {
+    updateLocalState(prev => prev.map(e => e.id === incidentId ? { ...e, ...details } : e));
+    if (!isDemo) await updateDoc(doc(db, 'emergencies', incidentId), details);
   };
 
   const rejectEmergency = async (incidentId: string) => {
@@ -423,12 +579,14 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
       activeEmergencies,
       dispatchEmergency, 
       updateEmergencyType, 
+      updateGuestDetails,
       updateEmergencyStatus,
       assignHospital,
       rejectEmergency, 
       resolveEmergency, 
       addVideoEvidence,
-      updateEmergencyLocation
+      updateEmergencyLocation,
+      hospitalStats
     }}>
       {children}
     </EmergencyContext.Provider>

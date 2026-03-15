@@ -47,8 +47,28 @@ export interface HospitalProfile {
     ambulances: number;
     doctors: number;
     beds: number;
+    icuBeds?: number;
   };
-  status: 'pending' | 'verified';
+  status: 'pending' | 'verified' | 'rejected' | 'blacklisted';
+}
+
+export interface HospitalResponseHistory {
+  sosId: string;
+  hospitalId: string;
+  sosTriggeredAt: string;
+  etaSetByHospital: string;
+  ambulanceArrivedAt: string;
+  actualResponseTime: number; // in minutes
+  etaAccuracy: number; // difference in minutes
+}
+
+export interface HospitalStats {
+  hospitalId: string;
+  averageResponseTime: number;
+  etaAccuracyPercentage: number;
+  totalEmergencies: number;
+  reliabilityScore: number;
+  lastUpdated: string;
 }
 
 export interface VideoEvidence {
@@ -58,6 +78,12 @@ export interface VideoEvidence {
   duration: number;
   emergencyType: string;
   location: LocationData;
+}
+
+export interface VictimCondition {
+  consciousness: 'Conscious' | 'Unconscious';
+  bleeding: 'Bleeding' | 'Not bleeding';
+  breathing: 'Breathing' | 'Not breathing';
 }
 
 export interface EmergencyIncident {
@@ -75,6 +101,16 @@ export interface EmergencyIncident {
   videoEvidence?: VideoEvidence;
   assignedHospitalId?: string;
   ambulanceEta?: string;
+  arrivedAt?: string; // New field to track exact arrival time
+  isGuestReport?: boolean;
+  victimCondition?: VictimCondition;
+  numberOfVictims?: string;
+  victimMedicalInfo?: {
+    bloodGroup?: string;
+    knownConditions?: string;
+    currentMedications?: string;
+    allergies?: string;
+  };
 }
 
 export enum EmergencyCategory {

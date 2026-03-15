@@ -27,7 +27,8 @@ const HospitalDashboard: React.FC<HospitalDashboardProps> = ({ onLogout }) => {
     currentUser,
     assignHospital,
     updateEmergencyStatus,
-    resolveEmergency 
+    resolveEmergency,
+    hospitalStats
   } = useEmergencySystem();
 
   const hospital = currentUser as HospitalProfile;
@@ -174,7 +175,7 @@ const confirmDischarge = async () => {
     status: 'resolved' 
   }]);
 
-  await resolveEmergency(dischargingIncident.id);
+  await resolveEmergency(dischargingIncident);
   
   // Cleanup
   setDischargingIncident(null);
@@ -420,16 +421,28 @@ const confirmDischarge = async () => {
         </div>
       ) : (
         filteredIncidents.map((incident) => (
-          <div key={incident.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-4 transition-all hover:shadow-md">
+          <div key={incident.id} className={`bg-white p-6 rounded-2xl shadow-sm border flex flex-col gap-4 transition-all hover:shadow-md ${incident.isGuestReport ? 'border-orange-200 border-l-4 border-l-orange-400' : 'border-gray-100'}`}>
             <div className="flex justify-between items-center">
               <div className="flex gap-5">
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${incident.status === 'active' ? 'bg-red-50 animate-pulse' : 'bg-indigo-50'}`}>
                   <Heart className={incident.status === 'active' ? 'text-red-500' : 'text-indigo-500'} />
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-800 text-lg">{incident.type?.name || 'SOS Signal'}</h4>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-bold text-slate-800 text-lg">{incident.type?.name || 'SOS Signal'}</h4>
+                    {incident.isGuestReport && (
+                      <span className="bg-orange-100 text-orange-600 text-[10px] font-black uppercase px-2 py-0.5 rounded-full tracking-widest border border-orange-200">GUEST REPORT</span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin size={14} /> {incident.location?.address}</p>
-                  
+                  {incident.isGuestReport && incident.victimCondition && (
+                    <div className="flex gap-1 mt-1 flex-wrap">
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${incident.victimCondition.consciousness === 'Unconscious' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>{incident.victimCondition.consciousness}</span>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${incident.victimCondition.bleeding === 'Bleeding' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>{incident.victimCondition.bleeding}</span>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${incident.victimCondition.breathing === 'Not breathing' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>{incident.victimCondition.breathing}</span>
+                      {incident.numberOfVictims && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{incident.numberOfVictims}</span>}
+                    </div>
+                  )}
                   {/* 🟢 NEW: Displays who is assigned to the case live */}
                   {incident.assignedHospitalId === hospital.id && (
                     <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1 block">
@@ -483,17 +496,24 @@ const confirmDischarge = async () => {
             {incident.assignedHospitalId === hospital.id && (
               <div className="pt-4 border-t border-slate-50 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
                 <div className="flex items-center gap-3">
-                  <button 
-                    onClick={() => alert(`
-                      PATIENT HEALTH RECORD:
-                      Blood Group: ${incident.userProfile?.medicalInfo?.bloodGroup || 'O+'}
-                      Allergies: ${incident.userProfile?.medicalInfo?.allergies || 'None Reported'}
-                      Emergency Contact: ${incident.userProfile?.emergencyContacts?.[0]?.phone || 'N/A'}
-                    `)}
-                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg hover:bg-indigo-100 transition-all"
-                  >
-                    <Shield size={14} /> Access Medical Profile
-                  </button>
+                  {/* Medical Profile Button — conditional based on report type */}
+                  {!incident.isGuestReport ? (
+                    // Regular SOS: always show user's own profile
+                    <button
+                      onClick={() => alert(`PATIENT HEALTH RECORD:\nBlood Group: ${incident.userProfile?.medicalInfo?.bloodGroup || 'Unknown'}\nAllergies: ${incident.userProfile?.medicalInfo?.allergies || 'None Reported'}\nEmergency Contact: ${incident.userProfile?.emergencyContacts?.[0]?.phone || 'N/A'}`)}
+                      className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg hover:bg-indigo-100 transition-all"
+                    >
+                      <Shield size={14} /> Access Medical Profile
+                    </button>
+                  ) : incident.victimMedicalInfo && Object.values(incident.victimMedicalInfo).some(v => v) ? (
+                    // Guest SOS: only show if bystander provided some info
+                    <button
+                      onClick={() => alert(`VICTIM INFO (Bystander-Provided):\nBlood Group: ${incident.victimMedicalInfo?.bloodGroup || 'Unknown'}\nConditions: ${incident.victimMedicalInfo?.knownConditions || 'Unknown'}\nMedications: ${incident.victimMedicalInfo?.currentMedications || 'Unknown'}\nAllergies: ${incident.victimMedicalInfo?.allergies || 'Unknown'}`)}
+                      className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-orange-600 bg-orange-50 px-3 py-2 rounded-lg hover:bg-orange-100 transition-all border border-orange-100"
+                    >
+                      <Shield size={14} /> Victim Info (Guest)
+                    </button>
+                  ) : null /* Guest with no medical info — hide button */}
 
                   {/* 🎥 VIDEO EVIDENCE BUTTON — only shows if patient recorded a video */}
                   {incident.videoEvidence ? (
@@ -556,12 +576,23 @@ const confirmDischarge = async () => {
     </div>
     <div className="grid grid-cols-1 gap-4">
       {filteredIncidents.map((incident) => (
-        <div key={incident.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
+        <div key={incident.id} className={`bg-white p-6 rounded-2xl shadow-sm flex justify-between items-center border ${incident.isGuestReport ? 'border-l-4 border-l-orange-400 border-orange-100' : 'border-slate-100'}`}>
           <div className="flex items-center gap-6">
             <div className="text-3xl font-black text-slate-100">#{incident.id.slice(-4)}</div>
             <div>
-              <h4 className="font-bold text-xl text-slate-800">{incident.type?.name}</h4>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-xl text-slate-800">{incident.type?.name}</h4>
+                {incident.isGuestReport && <span className="bg-orange-100 text-orange-600 text-[10px] font-black uppercase px-2 py-0.5 rounded-full tracking-widest">GUEST</span>}
+              </div>
               <p className="text-slate-500 italic text-sm">{incident.location?.address}</p>
+              {incident.isGuestReport && incident.victimCondition && (
+                <div className="flex gap-1 mt-1">
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${incident.victimCondition.consciousness === 'Unconscious' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>{incident.victimCondition.consciousness}</span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${incident.victimCondition.bleeding === 'Bleeding' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>{incident.victimCondition.bleeding}</span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${incident.victimCondition.breathing === 'Not breathing' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>{incident.victimCondition.breathing}</span>
+                  {incident.numberOfVictims && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{incident.numberOfVictims}</span>}
+                </div>
+              )}
             </div>
           </div>
           <div className="flex gap-3">
@@ -640,6 +671,66 @@ const confirmDischarge = async () => {
         </tr>
       </tbody>
     </table>
+  </div>
+)}
+
+{/* --- 5. DATA INSIGHTS (RELIABILITY SCORING) --- */}
+{currentView === 'analytics' && (
+  <div className="space-y-6 animate-in slide-in-from-bottom duration-500">
+    <div className="bg-white p-8 rounded-3xl border-l-8 border-indigo-500 shadow-sm flex justify-between items-center">
+      <div>
+        <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Hospital Reliability Scoring</h3>
+        <p className="text-slate-500 font-medium">Performance metrics based on actual response times versus given ETAs</p>
+      </div>
+      <TrendingUp size={48} className="text-indigo-100" />
+    </div>
+    
+    {hospitalStats ? (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-indigo-600 p-8 rounded-3xl shadow-lg shadow-indigo-200 text-white flex flex-col justify-between">
+          <div>
+            <p className="text-indigo-200 text-sm font-bold uppercase tracking-widest">CERS+ Score</p>
+            <h3 className="text-6xl font-black mt-2">{hospitalStats.reliabilityScore}<span className="text-2xl text-indigo-300">/100</span></h3>
+          </div>
+          <p className="text-xs text-indigo-200 mt-6 mt-auto">Calculated from {hospitalStats.totalEmergencies} total responses</p>
+        </div>
+
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between">
+          <div>
+            <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Average Response</p>
+            <h3 className="text-4xl font-black text-slate-800 mt-2">{hospitalStats.averageResponseTime} <span className="text-xl text-slate-400">min</span></h3>
+          </div>
+          <div className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-500">
+            <Clock size={14} className="text-slate-400"/> Faster responses boost scoring
+          </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between">
+          <div>
+            <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">ETA Accuracy</p>
+            <h3 className="text-4xl font-black text-emerald-600 mt-2">{hospitalStats.etaAccuracyPercentage}<span className="text-xl">%</span></h3>
+          </div>
+          <div className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-500">
+            <Activity size={14} className="text-emerald-500"/> Late arrivals apply penalties
+          </div>
+        </div>
+
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between">
+          <div>
+            <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Resolved Cases</p>
+            <h3 className="text-4xl font-black text-slate-800 mt-2">{hospitalStats.totalEmergencies}</h3>
+          </div>
+          <div className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-500">
+            <CheckCircle size={14} className="text-blue-500"/> Total archived in history
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div className="bg-white p-12 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-slate-400">
+        <Loader2 className="animate-spin mb-4" size={32} />
+        <p className="font-bold">Loading Performance Metrics...</p>
+      </div>
+    )}
   </div>
 )}
        </div>

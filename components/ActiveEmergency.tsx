@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { EmergencyType, VideoEvidence, UserProfile } from '../types';
 import { EMERGENCY_TYPES } from '../constants';
 import TrackingMap from './TrackingMap';
@@ -26,6 +26,7 @@ const ActiveEmergency: React.FC<ActiveEmergencyProps> = ({ type, onClose, onUpda
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const [videoCollapsed, setVideoCollapsed] = useState(false);
+  const videoAutoShownRef = useRef(false); // guard: auto-show only once
 
   // Find the current emergency object to get its live location
   const currentEmergency = activeEmergencies.find(e => e.userId === currentUser?.id && e.status !== 'resolved');
@@ -36,10 +37,12 @@ const ActiveEmergency: React.FC<ActiveEmergencyProps> = ({ type, onClose, onUpda
     return () => clearTimeout(timer);
   }, []);
 
-  // Auto-show video recorder when type is selected
+  // Auto-show video recorder only the FIRST time a type is selected.
+  // Using a ref guard so Firestore re-renders never re-open it after Save.
   useEffect(() => {
-    if (type) {
-        setShowVideo(true);
+    if (type && !videoAutoShownRef.current) {
+      videoAutoShownRef.current = true;
+      setShowVideo(true);
     }
   }, [type]);
 

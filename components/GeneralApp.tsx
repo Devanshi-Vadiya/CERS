@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import SOSButton from './SOSButton';
 import ActiveEmergency from './ActiveEmergency';
+import GuestEmergencyFlow from './GuestEmergencyFlow';
 import ChatAssistant from './ChatAssistant';
 import { AppTab, EmergencyType, UserProfile } from '../types'
 import { 
@@ -48,16 +49,18 @@ const GeneralApp: React.FC<GeneralAppProps> = ({ onLogout }) => {
   const handleSOSClick = async () => {
     setIsDispatching(true);
     const startTime = Date.now();
-    
-    // Perform dispatch
-    await dispatchEmergency(null);
-    
-    // Ensure the loading screen shows for at least 2 seconds for UX reassurance
+    await dispatchEmergency(null, false);
     const elapsedTime = Date.now() - startTime;
-    if (elapsedTime < 2000) {
-        await new Promise(r => setTimeout(r, 2000 - elapsedTime));
-    }
-    
+    if (elapsedTime < 2000) await new Promise(r => setTimeout(r, 2000 - elapsedTime));
+    setIsDispatching(false);
+  };
+
+  const handleGuestSOSClick = async () => {
+    setIsDispatching(true);
+    const startTime = Date.now();
+    await dispatchEmergency(null, true);
+    const elapsedTime = Date.now() - startTime;
+    if (elapsedTime < 2000) await new Promise(r => setTimeout(r, 2000 - elapsedTime));
     setIsDispatching(false);
   };
 
@@ -69,7 +72,7 @@ const GeneralApp: React.FC<GeneralAppProps> = ({ onLogout }) => {
 
   const handleEmergencyEnd = () => {
     if (myActiveEmergency) {
-      resolveEmergency(myActiveEmergency.id);
+      resolveEmergency(myActiveEmergency); // Pass the full incident, not just the id
     }
   };
 
@@ -140,9 +143,25 @@ const GeneralApp: React.FC<GeneralAppProps> = ({ onLogout }) => {
       <div className="flex flex-col h-full overflow-y-auto no-scrollbar relative">
         <div className="flex-1 flex flex-col items-center justify-center min-h-[400px]">
           <SOSButton onActivate={handleSOSClick} />
+          
+          <button 
+             onClick={handleGuestSOSClick}
+             className="hidden md:flex mt-6 bg-gray-800 hover:bg-gray-700 active:bg-gray-600 text-white px-6 py-3 rounded-xl border border-gray-600 shadow-sm flex items-center justify-center gap-2 transition-all"
+          >
+             <Shield size={18} className="text-orange-400" />
+             <span className="text-sm font-bold tracking-wide">Report Emergency (Guest Mod)</span>
+          </button>
+          
+          <button 
+             onClick={handleGuestSOSClick}
+             className="md:hidden mt-6 bg-gray-800/80 hover:bg-gray-700 active:bg-gray-600 text-white w-[90%] py-4 rounded-xl border border-gray-600 shadow-sm flex items-center justify-center gap-2 transition-all"
+          >
+             <Shield size={20} className="text-orange-400" />
+             <span className="font-bold tracking-wide">Report Emergency (Guest)</span>
+          </button>
         </div>
 
-        <div className="px-6 pb-6">
+        <div className="px-6 pb-6 mt-4">
            <h3 className="text-gray-500 text-xs font-bold uppercase mb-3">Quick Access</h3>
            <div className="flex gap-3 overflow-x-auto no-scrollbar py-2">
               <div onClick={() => handleCall('100')} className="flex flex-col items-center gap-1 min-w-[60px] cursor-pointer hover:opacity-80 active:scale-95 transition-transform">
@@ -404,6 +423,16 @@ const GeneralApp: React.FC<GeneralAppProps> = ({ onLogout }) => {
 
   // If in active emergency mode (and dispatching animation is done)
   if (myActiveEmergency && !isDispatching) {
+    if (myActiveEmergency.isGuestReport) {
+       return (
+         <GuestEmergencyFlow
+            currentEmergency={myActiveEmergency}
+            onClose={handleEmergencyEnd}
+            onLogout={handleLogoutRequest}
+         />
+       );
+    }
+
     return (
       <ActiveEmergency 
         type={myActiveEmergency.type} 
