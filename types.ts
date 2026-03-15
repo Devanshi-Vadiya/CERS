@@ -1,6 +1,6 @@
 export type UserRole = 'general' | 'hospital' | null;
 
-export type AuthState = 'landing' | 'login' | 'signup-general' | 'signup-hospital' | 'authenticated';
+export type AuthState = 'landing' | 'login' | 'signup-general' | 'signup-hospital' | 'authenticated' | 'insurance' | 'insurance-dashboard';
 
 export interface UserProfile {
   id: string;
@@ -48,6 +48,10 @@ export interface HospitalProfile {
     doctors: number;
     beds: number;
   };
+  city?: string;
+  address?: string;
+  facilities?: string[];
+  icuBeds?: number;
   status: 'pending' | 'verified';
 }
 
@@ -75,6 +79,12 @@ export interface EmergencyIncident {
   videoEvidence?: VideoEvidence;
   assignedHospitalId?: string;
   ambulanceEta?: string;
+  respondedHospitals?: {
+    [hospitalId: string]: {
+      status: 'pending' | 'accepted' | 'rejected';
+      timestamp: string;
+    }
+  };
 }
 
 export enum EmergencyCategory {
@@ -132,4 +142,28 @@ export interface LocationData {
   lat: number;
   lng: number;
   address?: string;
+}
+
+export interface HospitalAssistanceRequest {
+  id: string;
+  caseId: string;
+  requestingHospitalId: string;
+  requestingHospitalName: string;
+  requestingHospitalLocation: string;
+  toHospitalId: string;
+  toHospitalName: string;
+  requiredFacility: string;
+  patientCondition: string;
+  urgency: 'High' | 'Critical' | 'Moderate';
+  status: 'Pending' | 'Accepted' | 'Rejected' | 'Patient Transfer In Progress' | 'Case Resolved';
+  timestamp: string;
+}
+
+export interface InterHospitalMessage {
+  id: string;
+  requestId: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  timestamp: string;
 }

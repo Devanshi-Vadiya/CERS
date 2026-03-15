@@ -2,8 +2,8 @@ import React from 'react';
 import { User, Building, Shield, HeartPulse, Siren, Settings } from 'lucide-react';
 
 interface LandingPageProps {
-  // 🟢 Added 'admin-login' to supported paths
-  onNavigate: (path: 'signup-general' | 'signup-hospital' | 'login' | 'admin-login') => void;
+  // 🟢 Added 'admin-login' and 'insurance' to supported paths
+  onNavigate: (path: 'signup-general' | 'signup-hospital' | 'login' | 'admin-login' | 'insurance') => void;
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
@@ -31,7 +31,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
          </button>
       </div>
 
-      <div className="flex-1 flex flex-col justify-center max-w-5xl mx-auto w-full z-10">
+      <div className="flex-1 flex flex-col justify-center max-w-6xl mx-auto w-full z-10">
          <h1 className="text-4xl md:text-5xl font-black mb-4 text-center">
             Who Are You?
          </h1>
@@ -39,7 +39,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             Join the network saving lives during the Golden Hour. Select your role to get started.
          </p>
 
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
             {/* General Public Card */}
             <button 
                onClick={() => onNavigate('signup-general')}
@@ -75,6 +75,31 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                </ul>
                <div className="flex items-center gap-2 text-hospital-primary font-bold text-sm uppercase tracking-wider group-hover:translate-x-2 transition-transform">
                   Provide Help <Siren size={16} />
+               </div>
+            </button>
+
+            {/* Insurance / Protection Card */}
+            <button 
+               onClick={() => onNavigate('insurance')}
+               className="group relative bg-gradient-to-br from-[#1a2a6c] to-[#b21f1f] p-8 rounded-3xl border-2 border-transparent hover:border-blue-400 text-left transition-all hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(59,130,246,0.3)] overflow-hidden"
+            >
+               {/* Accent pattern for insurance card */}
+               <div className="absolute top-0 right-0 p-4 opacity-10">
+                  <Shield size={120} />
+               </div>
+               
+               <div className="bg-blue-400/20 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 text-blue-400 group-hover:bg-blue-400 group-hover:text-white transition-colors">
+                  <Shield size={32} />
+               </div>
+               <h2 className="text-2xl font-bold mb-2 text-white">Insurance / Protection</h2>
+               <p className="text-blue-100/70 text-sm mb-6">Low-cost emergency cover for families and ambulance staff.</p>
+               <ul className="text-gray-300 text-sm space-y-2 mb-8">
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div> From ₹10 / day</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div> IRDAI Partner Insurers</li>
+                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div> Cashless treatment</li>
+               </ul>
+               <div className="flex items-center gap-2 text-blue-400 font-bold text-sm uppercase tracking-wider group-hover:translate-x-2 transition-transform">
+                  Explore Plans <HeartPulse size={16} />
                </div>
             </button>
          </div>

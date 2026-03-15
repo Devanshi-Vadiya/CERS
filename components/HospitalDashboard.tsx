@@ -7,17 +7,19 @@ import {
   Activity, Users, Clock, AlertTriangle, MapPin, Radio, Shield,
   Video, Phone, Loader2, Ambulance, CheckCircle, Filter, Download,
   Plus, Inbox, LayoutDashboard, ClipboardList, Package, UserCheck,
-  LogOut, Search, XCircle, TrendingUp, Heart
+  LogOut, Search, XCircle, TrendingUp, Heart, MessageSquare
 } from "lucide-react";
 
 import { useEmergencySystem } from '../contexts/EmergencyContext';
 import { HospitalProfile } from '../types';
+import { CommandCenterDashboard } from './CommandCenterDashboard';
+import { HospitalCommunicationCenter } from './HospitalCommunicationCenter';
 
 interface HospitalDashboardProps {
   onLogout?: () => void;
 }
 
-type DashboardView = 'overview' | 'cases' | 'resources' | 'staff' | 'analytics';
+type DashboardView = 'overview' | 'cases' | 'resources' | 'staff' | 'analytics' | 'communication';
 
 const HospitalDashboard: React.FC<HospitalDashboardProps> = ({ onLogout }) => {
   // --- 1. HOOKS ---
@@ -48,9 +50,11 @@ const liveIncidents = useMemo(() => {
     // 1. Always keep 'active', 'assigned', 'dispatched', and 'arrived' cases visible
     const isLive = ['active', 'assigned', 'dispatched', 'arrived'].includes(e.status);
     
-    // 2. 🟢 GLOBAL SYNC LOGIC: 
-    // Show the case if it's unassigned (available to all) 
-    // OR if it's already taken by THIS specific hospital
+    // 2. Hide if hospital rejected it
+    const hasRejected = hospital?.id && e.respondedHospitals?.[hospital.id]?.status === 'rejected';
+    if (hasRejected) return false;
+
+    // 3. Show if unassigned (active) or if it's already taken by THIS specific hospital
     const isAvailableOrMine = !e.assignedHospitalId || e.assignedHospitalId === hospital?.id;
 
     return isLive && isAvailableOrMine;
@@ -143,13 +147,22 @@ const confirmAssignment = async () => {
   // 🟢 CRITICAL: Physically attach the name to the local object for the report
   assigningIncident.assignedDoctor = typedDoctorName;
 
-  await assignHospital(assigningIncident.id, hospital.id, assignmentForm.eta, { 
+  const success = await assignHospital(assigningIncident.id, hospital.id, assignmentForm.eta, { 
     assignedDoctor: typedDoctorName 
   });
+  
+  if (!success) {
+    alert("This emergency request has already been accepted by another hospital.");
+  }
   
   setAssigningIncident(null);
   setAssignmentForm(prev => ({ ...prev, eta: '' })); // Don't clear doctor name yet
   setLoadingAction(null);
+};
+
+const handleReject = async (incidentId: string) => {
+  if (!hospital?.id) return;
+  await rejectEmergencyRequest(incidentId, hospital.id);
 };
 
 
@@ -316,6 +329,7 @@ const confirmDischarge = async () => {
     <nav className="space-y-2">
       {[
         { id: 'overview', icon: LayoutDashboard, label: 'Command Center' },
+        { id: 'communication', icon: MessageSquare, label: 'Comms Network' },
         { id: 'cases', icon: ClipboardList, label: 'Active SOS' },
         { id: 'resources', icon: Ambulance, label: 'Fleet & Beds' },
         { id: 'staff', icon: UserCheck, label: 'Medical Staff' },
@@ -402,147 +416,8 @@ const confirmDischarge = async () => {
 </div>
 
         {/* --- 1. COMMAND CENTER (OVERVIEW) --- */}
-        {/* --- 1. COMMAND CENTER (OVERVIEW) --- */}
 {currentView === 'overview' && (
-  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
-    <div className="lg:col-span-2 space-y-4">
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="font-bold text-lg flex items-center gap-2">
-          <Radio size={18} className="text-red-500"/> Live Signal Feed
-        </h3>
-        <span className="text-xs text-gray-400">Updates instantly</span>
-      </div>
-
-      {filteredIncidents.length === 0 ? (
-        <div className="bg-white p-12 rounded-3xl border border-dashed border-gray-200 text-center">
-          <CheckCircle className="mx-auto text-green-200 mb-4" size={48} />
-          <p className="text-gray-400 font-medium">Clear Skies. No active emergencies.</p>
-        </div>
-      ) : (
-        filteredIncidents.map((incident) => (
-          <div key={incident.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-4 transition-all hover:shadow-md">
-            <div className="flex justify-between items-center">
-              <div className="flex gap-5">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${incident.status === 'active' ? 'bg-red-50 animate-pulse' : 'bg-indigo-50'}`}>
-                  <Heart className={incident.status === 'active' ? 'text-red-500' : 'text-indigo-500'} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-800 text-lg">{incident.type?.name || 'SOS Signal'}</h4>
-                  <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin size={14} /> {incident.location?.address}</p>
-                  
-                  {/* 🟢 NEW: Displays who is assigned to the case live */}
-                  {incident.assignedHospitalId === hospital.id && (
-                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1 block">
-                      Assigned to: {incident.assignedDoctor || 'Medical Team'}
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              {!incident.assignedHospitalId ? (
-  <button 
-    onClick={() => handleAccept(incident)} 
-    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-indigo-100"
-  >
-    Accept Case
-  </button>
-) : (
-<div className="flex items-center gap-3">
-  {/* STEP 1: Dispatch (Visible only if Assigned) */}
-  {incident.status === 'assigned' && (
-    <button 
-      onClick={() => updateEmergencyStatus(incident.id, 'dispatched')}
-      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md"
-    >
-      Dispatch Fleet
-    </button>
-  )}
-
-  {/* STEP 2: Arrived (Visible only if Dispatched) */}
-  {incident.status === 'dispatched' && (
-    <button 
-      onClick={() => updateEmergencyStatus(incident.id, 'arrived')}
-      className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md"
-    >
-      Mark Arrived
-    </button>
-  )}
-
-  {/* STEP 3: Status Badge & Discharge Trigger (Visible once Arrived) */}
-  <div className="flex items-center gap-2 bg-green-50 px-4 py-2 rounded-xl text-green-600 border border-green-100">
-    <CheckCircle size={16} /> 
-    <span className="text-[10px] font-black uppercase tracking-widest">{incident.status}</span>
-  </div>
-
- 
-  </div>
-)}
-            </div>
-
-            {/* Live Medical Profile Access Section */}
-            {incident.assignedHospitalId === hospital.id && (
-              <div className="pt-4 border-t border-slate-50 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
-                <div className="flex items-center gap-3">
-                  <button 
-                    onClick={() => alert(`
-                      PATIENT HEALTH RECORD:
-                      Blood Group: ${incident.userProfile?.medicalInfo?.bloodGroup || 'O+'}
-                      Allergies: ${incident.userProfile?.medicalInfo?.allergies || 'None Reported'}
-                      Emergency Contact: ${incident.userProfile?.emergencyContacts?.[0]?.phone || 'N/A'}
-                    `)}
-                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg hover:bg-indigo-100 transition-all"
-                  >
-                    <Shield size={14} /> Access Medical Profile
-                  </button>
-
-                  {/* 🎥 VIDEO EVIDENCE BUTTON — only shows if patient recorded a video */}
-                  {incident.videoEvidence ? (
-                    <button
-                      onClick={() => setViewingVideo(incident)}
-                      className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 px-3 py-2 rounded-lg hover:bg-red-100 transition-all border border-red-100 animate-pulse"
-                    >
-                      <Video size={14} /> View Evidence
-                    </button>
-                  ) : (
-                    <span className="flex items-center gap-2 text-[10px] font-bold text-slate-300 px-3 py-2">
-                      <Video size={12} /> No Video Yet
-                    </span>
-                  )}
-                  <span className="text-[10px] font-bold text-slate-400 italic">ETA: {incident.ambulanceEta}</span>
-                </div>
-                <button 
-                  onClick={() => initiateEndEmergency(incident)}
-                  className="text-slate-300 hover:text-red-500 transition-colors"
-                >
-                  <XCircle size={20} />
-                </button>
-              </div>
-            )}
-          </div>
-        ))
-      )}
-    </div>
-
-    {/* Right Sidebar Charts and Protocol info */}
-    <div className="space-y-6">
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-        <h3 className="font-bold mb-6 flex items-center gap-2"><TrendingUp size={18} className="text-indigo-500"/> Live Operation Dist.</h3>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={liveStatusTrend}>
-              <Bar dataKey="count" fill="#4F46E5" radius={[4, 4, 0, 0]} />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10}} />
-              <Tooltip cursor={{fill: '#F3F4F6'}} contentStyle={{borderRadius: '12px', border: 'none'}} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-      <div className="bg-indigo-900 p-6 rounded-3xl shadow-lg text-white">
-         <h3 className="font-bold text-lg mb-2 italic">Golden Hour Protocol</h3>
-         <p className="text-indigo-200 text-xs leading-relaxed">System monitoring response thresholds. Maintain readiness.</p>
-      </div>
-    </div>
-  </div>
+  <CommandCenterDashboard />
 )}
 {/* --- 2. ACTIVE SOS (REAL-TIME QUEUE) --- */}
 {currentView === 'cases' && (
@@ -566,7 +441,10 @@ const confirmDischarge = async () => {
           </div>
           <div className="flex gap-3">
              {!incident.assignedHospitalId ? (
-               <button onClick={() => handleAccept(incident.id)} className="px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-100 transition-all">Emergency Accept</button>
+              <div className="flex gap-3">
+                 <button onClick={() => handleReject(incident.id)} className="px-6 py-3 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl font-bold hover:bg-red-50 hover:text-red-600 transition-all">Reject</button>
+                 <button onClick={() => handleAccept(incident)} className="px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-100 transition-all">Emergency Accept</button>
+              </div>
              ) : (
                <>
                  {incident.videoEvidence && (
@@ -695,6 +573,14 @@ const confirmDischarge = async () => {
     </div>
   </div>
        )}
+
+{/* --- NEW COMMUNICATION CENTER VIEW --- */}
+{currentView === 'communication' && (
+  <div className="h-[calc(100vh-[180px])] -m-8 p-8 overflow-y-auto">
+    <HospitalCommunicationCenter />
+  </div>
+)}
+
        {/* --- CUSTOM DISCHARGE CONFIRMATION BOX --- */}
 {dischargingIncident && (
   <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">

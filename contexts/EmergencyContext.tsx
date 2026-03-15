@@ -25,6 +25,7 @@ import {
   where, 
   orderBy,
   getDocs,
+  runTransaction
 } from 'firebase/firestore';
 
 
@@ -50,8 +51,8 @@ interface EmergencyContextType {
   dispatchEmergency: (type: EmergencyType | null) => Promise<void>;
   updateEmergencyType: (incidentId: string, type: EmergencyType | null) => Promise<void>;
   updateEmergencyStatus: (incidentId: string, status: EmergencyIncident['status'], message?: string) => Promise<void>;
-  assignHospital: (incidentId: string, hospitalId: string, eta: string, extraData?: any) => Promise<void>; 
-  rejectEmergency: (incidentId: string) => Promise<void>;
+  assignHospital: (incidentId: string, hospitalId: string, eta: string, extraData?: any) => Promise<boolean>; 
+  rejectEmergencyRequest: (incidentId: string, hospitalId: string) => Promise<void>;
   resolveEmergency: (incidentId: string) => Promise<void>;
   addVideoEvidence: (incidentId: string, video: VideoEvidence) => void;
   updateEmergencyLocation: (incidentId: string, lat: number, lng: number) => Promise<void>;
@@ -347,6 +348,19 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
     const coords = await getLocation();
     const address = await reverseGeocode(coords.lat, coords.lng);
 
+    // Fetch all verified hospitals to broadcast to
+    const verifiedHospitalsSnapshot = await getDocs(
+      query(collection(db, "hospitals"), where("status", "==", "verified"))
+    );
+    
+    const respondedHospitals: Record<string, any> = {};
+    verifiedHospitalsSnapshot.forEach((doc) => {
+      respondedHospitals[doc.id] = {
+        status: 'pending',
+        timestamp: new Date().toISOString()
+      };
+    });
+
     const incident: EmergencyIncident = {
       userId: currentUser.id,
       timestamp: new Date().toISOString(),
@@ -354,13 +368,14 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
       type,
       userProfile: currentUser,
       location: { lat: coords.lat, lng: coords.lng, address },
-      log: [{ time: new Date().toISOString(), message: 'SOS Activated' }]
+      log: [{ time: new Date().toISOString(), message: 'SOS Activated' }],
+      respondedHospitals
     };
 
     if (!isDemo) {
       await addDoc(collection(db, "emergencies"), incident);
     } else {
-      updateLocalState(prev => [{ id: `EMG-${Date.now()}`, ...incident }, ...prev]);
+      updateLocalState(prev => [{ id: `EMG-${Date.now()}`, ...incident } as unknown as EmergencyIncident, ...prev]);
     }
   };
 
@@ -374,15 +389,66 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   };
 
-  const assignHospital = async (incidentId: string, hospitalId: string, eta: string, extraData?: any) => {
-    const data = { 
-      status: 'assigned', 
-      assignedHospitalId: hospitalId, 
-      ambulanceEta: eta,
-      ...extraData 
-    };
-    updateLocalState(prev => prev.map(e => e.id === incidentId ? { ...e, ...data } : e));
-    if (!isDemo) await updateDoc(doc(db, "emergencies", incidentId), data);
+  const assignHospital = async (incidentId: string, hospitalId: string, eta: string, extraData?: any): Promise<boolean> => {
+    if (isDemo) {
+      const data = { 
+        status: 'assigned', 
+        assignedHospitalId: hospitalId, 
+        ambulanceEta: eta,
+        ...extraData 
+      };
+      updateLocalState(prev => prev.map(e => e.id === incidentId ? { ...e, ...data } as unknown as EmergencyIncident : e));
+      return true;
+    }
+
+    try {
+      if (!db) throw new Error("Firestore not initialized");
+      
+      const docRef = doc(db, "emergencies", incidentId);
+      
+      const success = await runTransaction(db, async (transaction) => {
+        const sfDoc = await transaction.get(docRef);
+        if (!sfDoc.exists()) {
+          throw "Document does not exist!";
+        }
+
+        const data = sfDoc.data() as EmergencyIncident;
+
+        // CRITICAL: Check if already assigned
+        if (data.assignedHospitalId || data.status !== 'active') {
+          return false; // Already locked by someone else
+        }
+
+        const updatedResponded = { ...data.respondedHospitals } || {};
+        if (updatedResponded[hospitalId]) {
+             updatedResponded[hospitalId] = {
+               status: 'accepted',
+               timestamp: new Date().toISOString()
+             };
+        } else {
+             updatedResponded[hospitalId] = {
+               status: 'accepted',
+               timestamp: new Date().toISOString()
+             };
+        }
+
+        const updateData: any = { 
+          status: 'assigned', 
+          assignedHospitalId: hospitalId, 
+          ambulanceEta: eta,
+          respondedHospitals: updatedResponded,
+          ...extraData 
+        };
+
+        transaction.update(docRef, updateData);
+        return true;
+      });
+
+      return success;
+    } catch (e) {
+      console.error("Transaction failed: ", e);
+      return false;
+    }
   };
 
   const updateEmergencyStatus = async (incidentId: string, status: any) => {
@@ -402,9 +468,36 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
     if (!isDemo) await updateDoc(doc(db, 'emergencies', incidentId), { type });
   };
 
-  const rejectEmergency = async (incidentId: string) => {
-    if (!isDemo) await updateDoc(doc(db, 'emergencies', incidentId), { status: 'rejected' });
-    else updateLocalState(prev => prev.filter(e => e.id !== incidentId));
+  const rejectEmergencyRequest = async (incidentId: string, hospitalId: string) => {
+    if (isDemo) {
+      updateLocalState(prev => prev.filter(e => e.id !== incidentId));
+      return;
+    }
+    
+    try {
+      const docRef = doc(db, 'emergencies', incidentId);
+      await runTransaction(db, async (transaction) => {
+        const sfDoc = await transaction.get(docRef);
+        if (!sfDoc.exists()) return;
+        
+        const data = sfDoc.data() as EmergencyIncident;
+        const updatedResponded = { ...data.respondedHospitals } || {};
+        if (updatedResponded[hospitalId]) {
+           updatedResponded[hospitalId] = {
+             status: 'rejected',
+             timestamp: new Date().toISOString()
+           };
+        } else {
+           updatedResponded[hospitalId] = {
+             status: 'rejected',
+             timestamp: new Date().toISOString()
+           };
+        }
+        transaction.update(docRef, { respondedHospitals: updatedResponded });
+      });
+    } catch (e) {
+      console.error("Failed to reject emergency:", e);
+    }
   };
 
   const addVideoEvidence = async (incidentId: string, video: VideoEvidence) => {
@@ -427,7 +520,7 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
       updateEmergencyType, 
       updateEmergencyStatus,
       assignHospital,
-      rejectEmergency, 
+      rejectEmergencyRequest, 
       resolveEmergency, 
       addVideoEvidence,
       updateEmergencyLocation

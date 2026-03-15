@@ -131,6 +131,26 @@ const ActiveEmergency: React.FC<ActiveEmergencyProps> = ({ type, onClose, onUpda
 
         {/* Footer Actions */}
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#1E272E] to-transparent z-30 flex flex-col items-center gap-4">
+           {/* Insurance Protection Ad */}
+           <div 
+             onClick={() => {
+               window.history.pushState({}, '', '/insurance');
+               window.dispatchEvent(new PopStateEvent('popstate'));
+             }}
+             className="bg-blue-600/20 border border-blue-500/30 p-4 rounded-2xl w-full max-w-sm flex items-center justify-between group cursor-pointer hover:bg-blue-600/30 transition-all"
+           >
+              <div className="flex items-center gap-3">
+                 <Shield size={20} className="text-blue-400" />
+                 <div>
+                    <p className="text-white text-xs font-bold">Protect Your Next Emergency</p>
+                    <p className="text-blue-300 text-[10px]">Get low-cost insurance from ₹10/day</p>
+                 </div>
+              </div>
+              <button className="bg-blue-600 text-white text-[10px] font-black px-3 py-1.5 rounded-lg group-hover:scale-105 transition-transform">
+                 EXPLORE
+              </button>
+           </div>
+
            <div className="flex items-center gap-2 text-safe font-bold text-sm bg-safe/10 px-4 py-2 rounded-full border border-safe/20">
               <Shield size={16} />
               <span>Response Team ETA: 3 min</span>

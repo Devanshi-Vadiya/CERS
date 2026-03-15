@@ -5,11 +5,14 @@ import SignUpFlow from './components/SignUpFlow';
 import HospitalSignUpFlow from './components/HospitalSignUpFlow';
 import GeneralApp from './components/GeneralApp';
 import HospitalDashboard from './components/HospitalDashboard';
-// 🟢 Added Imports for Password Reset and Admin Vetting
+// 🟢 Added Imports for Password Reset, Admin Vetting, and Insurance
 import ResetPassword from './components/ResetPassword'; 
 import AdminDashboard from './components/AdminDashboard';
+import InsurancePage from './components/InsurancePage';
+import InsuranceDashboard from './components/InsuranceDashboard';
 import { AuthState, UserRole } from './types';
 import { EmergencyProvider, useEmergencySystem } from './contexts/EmergencyContext';
+import { HospitalCommProvider } from './contexts/HospitalCommContext';
 // 🟢 Added Lucide-React Icons for Modals
 import { CheckCircle, ShieldAlert, X, XCircle } from 'lucide-react';
 
@@ -113,6 +116,8 @@ const AppContent: React.FC = () => {
 
   const isResetPath = window.location.pathname === '/reset-password'; 
   const isAdminPath = window.location.pathname === '/admin-panel';
+  const isInsurancePath = window.location.pathname === '/insurance';
+  const isInsuranceDashboardPath = window.location.pathname === '/insurance/dashboard';
 
   // --- Router Handlers ---
 
@@ -126,6 +131,16 @@ const AppContent: React.FC = () => {
 
   const navigateToHospitalSignUp = () => {
     setAuthState('signup-hospital');
+  };
+
+  const navigateToInsurance = () => {
+    if (userRole === 'general') {
+      setAuthState('insurance-dashboard');
+      window.history.pushState({}, '', '/insurance/dashboard');
+    } else {
+      setAuthState('insurance');
+      window.history.pushState({}, '', '/insurance');
+    }
   };
 
   const handleAdminAuthTrigger = () => {
@@ -172,10 +187,37 @@ const AppContent: React.FC = () => {
     window.history.pushState({}, '', '/'); 
   };
 
+  const navigateToInsurancePlans = () => {
+    setAuthState('insurance');
+    window.history.pushState({}, '', '/insurance');
+  };
+
   // --- Render Logic ---
+
+  const { currentUser, activeEmergencies } = useEmergencySystem();
 
   if (isResetPath) {
     return <ResetPassword />; 
+  }
+
+  if (isInsurancePath || authState === 'insurance') {
+    return <InsurancePage onBack={handleBackToLanding} onGetCovered={() => setAuthState('login')} />;
+  }
+
+  if (isInsuranceDashboardPath || authState === 'insurance-dashboard') {
+    if (userRole === 'general' && currentUser) {
+      return (
+        <InsuranceDashboard 
+          user={currentUser as UserProfile} 
+          emergencies={activeEmergencies} 
+          onBack={handleBackToLanding} 
+          onUpgrade={navigateToInsurancePlans}
+        />
+      );
+    } else {
+      // If not logged in or wrong role, redirect to public insurance page
+      return <InsurancePage onBack={handleBackToLanding} onGetCovered={() => setAuthState('login')} />;
+    }
   }
 
   if (isAdminPath || isAdminAuth) {
@@ -187,6 +229,7 @@ const AppContent: React.FC = () => {
            if (path === 'signup-general') navigateToGeneralSignUp();
            else if (path === 'signup-hospital') navigateToHospitalSignUp();
            else if (path === 'admin-login') handleAdminAuthTrigger();
+           else if (path === 'insurance') navigateToInsurance();
            else navigateToLogin();
         }} 
       />
@@ -212,6 +255,7 @@ const AppContent: React.FC = () => {
              if (path === 'signup-general') navigateToGeneralSignUp();
              else if (path === 'signup-hospital') navigateToHospitalSignUp();
              else if (path === 'admin-login') handleAdminAuthTrigger();
+             else if (path === 'insurance') navigateToInsurance();
              else navigateToLogin();
           }} 
         />
@@ -261,7 +305,9 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <EmergencyProvider>
-      <AppContent />
+      <HospitalCommProvider>
+        <AppContent />
+      </HospitalCommProvider>
     </EmergencyProvider>
   );
 };
