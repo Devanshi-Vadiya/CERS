@@ -12,35 +12,35 @@
     <loc>https://cers-4.onrender.com/insurance</loc>
     <lastmod>2026-04-11</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.3</priority>
   </url>
 
   <url>
     <loc>https://cers-4.onrender.com/login</loc>
     <lastmod>2026-04-11</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.4</priority>
   </url>
 
   <url>
     <loc>https://cers-4.onrender.com/signup</loc>
     <lastmod>2026-04-11</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.4</priority>
   </url>
 
   <url>
     <loc>https://cers-4.onrender.com/signup/hospital</loc>
     <lastmod>2026-04-11</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.4</priority>
   </url>
 
   <url>
     <loc>https://cers-4.onrender.com/about</loc>
     <lastmod>2026-04-11</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <priority>0.7</priority>
   </url>
 
   <url>
