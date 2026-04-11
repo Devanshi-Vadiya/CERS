@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { User, Building, Shield, HeartPulse, Siren, Settings } from 'lucide-react';
 
 interface LandingPageProps {
@@ -7,6 +7,16 @@ interface LandingPageProps {
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
+   useEffect(() => {
+      const path = window.location.pathname.replace('/', '');
+      if (['about', 'features', 'contact'].includes(path)) {
+         const element = document.getElementById(path);
+         if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+         }
+      }
+   }, []);
+
    return (
       <div className="min-h-screen bg-charcoal text-white flex flex-col p-4 md:p-6 relative overflow-hidden">
          {/* Background Decor */}
@@ -15,21 +25,26 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             <div className="absolute bottom-[-20%] right-[-20%] w-[600px] h-[600px] rounded-full bg-trust opacity-10 blur-[100px]"></div>
          </div>
 
-         {/* Header */}
-         <div className="relative z-10 flex justify-between items-center mb-12">
-            <div className="flex items-center gap-2">
-               <div className="bg-emergency p-2 rounded-lg">
-                  <HeartPulse size={24} className="text-white" />
-               </div>
-               <span className="font-black text-2xl tracking-tighter">CERS<span className="text-emergency">+</span></span>
-            </div>
-            <button 
-              onClick={() => onNavigate('login')}
-              className="text-sm font-bold text-gray-300 hover:text-white border border-gray-600 px-4 py-2 rounded-full"
-            >
-              Sign In
-            </button>
-         </div>
+          {/* Header */}
+          <div className="relative z-10 flex justify-between items-center mb-12">
+             <div className="flex items-center gap-2">
+                <div className="bg-emergency p-2 rounded-lg">
+                   <HeartPulse size={24} className="text-white" />
+                </div>
+                <span className="font-black text-2xl tracking-tighter">CERS<span className="text-emergency">+</span></span>
+             </div>
+             <div className="hidden md:flex items-center gap-6">
+                <a href="/features" className="text-sm font-bold text-gray-400 hover:text-white transition-colors">Features</a>
+                <a href="/about" className="text-sm font-bold text-gray-400 hover:text-white transition-colors">About</a>
+                <a href="/contact" className="text-sm font-bold text-gray-400 hover:text-white transition-colors">Contact</a>
+             </div>
+             <button 
+               onClick={() => onNavigate('login')}
+               className="text-sm font-bold text-white bg-emergency hover:bg-red-600 px-6 py-2 rounded-full shadow-lg shadow-emergency/20 transition-all"
+             >
+               Sign In
+             </button>
+          </div>
 
          <div className="flex-1 flex flex-col justify-center max-w-6xl mx-auto w-full z-10">
             <h1 className="text-4xl md:text-5xl font-black mb-4 text-center">
@@ -105,10 +120,46 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             </div>
          </div>
 
+         {/* Features Section */}
+         <div id="features" className="relative z-10 mt-32 max-w-6xl mx-auto w-full">
+            <h2 className="text-3xl font-black mb-12 text-center text-white">Advanced Response Capabilities</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+               {[
+                  { title: "Real-time Tracking", desc: "Live GPS updates for responders and victims during the Golden Hour." },
+                  { title: "AI Triage", desc: "Intelligent symptom assessment to prioritize critical cases instantly." },
+                  { title: "Video Evidence", desc: "Secure video streaming from the scene to the emergency room." },
+                  { title: "Inter-Hospital Comms", desc: "Seamless facility-to-facility coordination for faster transfers." }
+               ].map((f, i) => (
+                  <div key={i} className="bg-white/5 border border-white/10 p-6 rounded-2xl">
+                     <h3 className="font-bold text-lg mb-2 text-white">{f.title}</h3>
+                     <p className="text-gray-400 text-sm leading-relaxed">{f.desc}</p>
+                  </div>
+               ))}
+            </div>
+         </div>
+
+         {/* About Section */}
+         <div id="about" className="relative z-10 mt-32 max-w-4xl mx-auto w-full text-center">
+            <h2 className="text-3xl font-black mb-6 text-white">Our Mission</h2>
+            <p className="text-gray-400 text-lg leading-relaxed">
+               CERS+ is an AI-driven emergency response network designed to eliminate delays in medical assistance. 
+               By connecting victims, hospitals, and ambulances in a unified real-time ecosystem, we ensure that every second counts.
+            </p>
+         </div>
+
+         {/* Contact Section */}
+         <div id="contact" className="relative z-10 mt-32 mb-32 max-w-md mx-auto w-full text-center">
+            <h2 className="text-3xl font-black mb-6 text-white">Get in Touch</h2>
+            <p className="text-gray-400 mb-8">Have questions or want to partner with the CERS+ network?</p>
+            <a href="mailto:support@cers-plus.com" className="inline-block bg-white text-charcoal font-black px-8 py-4 rounded-2xl hover:bg-gray-200 transition-all">
+               Contact Support
+            </a>
+         </div>
+
          {/* Footer Area */}
-         <div className="mt-12 flex flex-col items-center gap-4 z-10">
+         <div className="mt-auto flex flex-col items-center gap-4 z-10 py-8 border-t border-white/5">
             <div className="text-gray-600 text-xs text-center">
-               © 2024 CERS+ Emergency Response Network. All rights reserved.
+               © 2026 CERS+ Emergency Response Network. All rights reserved.
             </div>
 
             <button

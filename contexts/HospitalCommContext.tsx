@@ -73,7 +73,7 @@ export const HospitalCommProvider = ({ children }: { children: ReactNode }) => {
 
       // SENT: Requests sent BY me
       const sent = allDocs.filter(req => 
-        req.fromHospitalId === myId || 
+        (req as any).fromHospitalId === myId || 
         req.requestingHospitalId === myId ||
         (req as any).senderId === myId
       );

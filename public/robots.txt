@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+# CERS+ Private & Sensitive Routes
+Disallow: /insurance
+Disallow: /about
+Disallow: /contact
+Disallow: /features
+Disallow: /admin-panel
+Disallow: /insurance/dashboard
+Disallow: /reset-password
+Disallow: /signup/hospital
+Disallow: /api
+
+Sitemap: https://cers-4.onrender.com/sitemap.xml

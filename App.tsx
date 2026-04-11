@@ -10,7 +10,7 @@ import ResetPassword from './components/ResetPassword';
 import AdminDashboard from './components/AdminDashboard';
 import InsurancePage from './components/InsurancePage';
 import InsuranceDashboard from './components/InsuranceDashboard';
-import { AuthState, UserRole } from './types';
+import { AuthState, UserRole, UserProfile, HospitalProfile } from './types';
 import { EmergencyProvider, useEmergencySystem } from './contexts/EmergencyContext';
 import { HospitalCommProvider } from './contexts/HospitalCommContext';
 // 🟢 Added Lucide-React Icons for Modals
@@ -40,9 +40,9 @@ const SuccessModal = ({ message, onClose }: { message: string, onClose: () => vo
 
 // --- 🟢 Custom Admin Login Modal Component (No Alerts) ---
 const AdminLoginModal = ({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) => {
-  const [user, setUser] = useState("");
-  const [pass, setPass] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = React.useState("");
+  const [pass, setPass] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
 
   const handleLogin = () => {
     // 🔴 Logic: admin / admin123
@@ -105,67 +105,62 @@ const AdminLoginModal = ({ onClose, onSuccess }: { onClose: () => void, onSucces
   );
 };
 
-// @ts-ignore
-class GlobalErrorBoundary extends React.Component<any, any> {
-  state: any;
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
-  componentDidCatch(error: any, errorInfo: any) { console.error("🛑 CRITICAL APP CRASH:", error, errorInfo); }
-  render() {
-    // @ts-ignore
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
-          <div className="bg-slate-800 p-8 rounded-3xl border border-red-500/20 max-w-md shadow-2xl">
-            <h1 className="text-3xl font-black text-red-500 mb-4">System Interrupted</h1>
-            <p className="text-slate-300 mb-6 leading-relaxed">The application encountered a runtime error that would normally cause a blank screen.</p>
-            <div className="bg-black/30 p-4 rounded-xl mb-6 text-left overflow-auto max-h-32">
-              {/* @ts-ignore */}
-              <code className="text-xs text-red-400 font-mono italic">{this.state.error?.message || "Unknown Runtime Error"}</code>
-            </div>
-            <button
-              onClick={() => window.location.reload()}
-              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl transition-all shadow-lg"
-            >
-              Force Component Restart
-            </button>
-          </div>
-        </div>
-      );
-    }
-    // @ts-ignore
-    return this.props.children;
-  }
-}
+// -- Error Boundary (Simplified) --
+const SimpleErrorFallback = () => (
+  <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center text-white">
+    <div className="bg-slate-800 p-8 rounded-3xl border border-red-500/20 max-w-md shadow-2xl">
+      <h1 className="text-3xl font-black text-red-500 mb-4">System Interrupted</h1>
+      <p className="text-slate-300 mb-6">A runtime error occurred. Please refresh or restart.</p>
+      <button onClick={() => window.location.reload()} className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 font-bold rounded-2xl shadow-lg">
+        Force Restart
+      </button>
+    </div>
+  </div>
+);
 
 const AppContent: React.FC = () => {
-  const [authState, setAuthState] = useState<AuthState>('landing');
-  const [userRole, setUserRole] = useState<UserRole>(null);
+  const [authState, setAuthState] = React.useState<AuthState>('landing');
+  const [userRole, setUserRole] = React.useState<UserRole>(null);
 
   // 🟢 Modal States
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [modalMessage, setModalMessage] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = React.useState(false);
+  const [showAdminModal, setShowAdminModal] = React.useState(false);
+  const [modalMessage, setModalMessage] = React.useState("");
 
-  const [isAdminAuth, setIsAdminAuth] = useState(false);
+  const [isAdminAuth, setIsAdminAuth] = React.useState(false);
   const { logoutUser, currentUser, activeEmergencies } = useEmergencySystem();
 
   const isResetPath = window.location.pathname === '/reset-password';
   const isAdminPath = window.location.pathname === '/admin-panel';
   const isInsurancePath = window.location.pathname === '/insurance';
   const isInsuranceDashboardPath = window.location.pathname === '/insurance/dashboard';
+  const isLoginPath = window.location.pathname === '/login';
+  const isSignupPath = window.location.pathname === '/signup';
+  const isHospitalSignupPath = window.location.pathname === '/signup/hospital';
+  const isAboutPath = window.location.pathname === '/about';
+  const isContactPath = window.location.pathname === '/contact';
+  const isFeaturesPath = window.location.pathname === '/features';
 
   // 🟢 Session Restoration: If we have a user in context, put them back into 'authenticated' state
-  useEffect(() => {
-    if (currentUser && authState === 'landing') {
+  React.useEffect(() => {
+    if (currentUser && authState === 'landing' && !isLoginPath && !isSignupPath && !isHospitalSignupPath) {
       console.log("🔄 Session Restored:", currentUser.role);
       setUserRole(currentUser.role);
       setAuthState('authenticated');
+    } else if (isLoginPath) {
+      setAuthState('login');
+    } else if (isSignupPath) {
+      setAuthState('signup-general');
+    } else if (isHospitalSignupPath) {
+      setAuthState('signup-hospital');
+    } else if (isInsurancePath) {
+      setAuthState('insurance');
+    } else if (isInsuranceDashboardPath) {
+      setAuthState('insurance-dashboard');
+    } else if (isAboutPath || isContactPath || isFeaturesPath) {
+      setAuthState('landing');
     }
-  }, [currentUser, authState]);
+  }, [currentUser, authState, isLoginPath, isSignupPath, isHospitalSignupPath, isInsurancePath, isInsuranceDashboardPath, isAboutPath, isContactPath, isFeaturesPath]);
 
   // 🟢 Proactive Permission Fetching on Launch
   useEffect(() => {
@@ -184,14 +179,17 @@ const AppContent: React.FC = () => {
 
   const navigateToLogin = () => {
     setAuthState('login');
+    window.history.pushState({}, '', '/login');
   };
 
   const navigateToGeneralSignUp = () => {
     setAuthState('signup-general');
+    window.history.pushState({}, '', '/signup');
   };
 
   const navigateToHospitalSignUp = () => {
     setAuthState('signup-hospital');
+    window.history.pushState({}, '', '/signup/hospital');
   };
 
   const navigateToInsurance = () => {
@@ -363,13 +361,11 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <GlobalErrorBoundary>
-      <EmergencyProvider>
-        <HospitalCommProvider>
-          <AppContent />
-        </HospitalCommProvider>
-      </EmergencyProvider>
-    </GlobalErrorBoundary>
+    <EmergencyProvider>
+      <HospitalCommProvider>
+        <AppContent />
+      </HospitalCommProvider>
+    </EmergencyProvider>
   );
 };
 

@@ -1,12 +1,6 @@
 // @ts-nocheck
-import React, {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-  useEffect,
-  useRef
-} from 'react';
+import React from 'react';
+import type { ReactNode } from 'react';
 import {
   EmergencyIncident,
   UserProfile,
@@ -63,11 +57,11 @@ interface EmergencyContextType {
   allHospitals: HospitalProfile[];
 }
 
-const EmergencyContext = createContext<EmergencyContextType | undefined>(undefined);
+const EmergencyContext = React.createContext<EmergencyContextType | undefined>(undefined);
 
 export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
-  const [currentUser, setCurrentUser] = useState<UserProfile | HospitalProfile | null>(() => {
+  const [currentUser, setCurrentUser] = React.useState<UserProfile | HospitalProfile | null>(() => {
     try {
       const saved = sessionStorage.getItem('cers_current_user');
       return saved ? JSON.parse(saved) : null;
@@ -76,10 +70,10 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   });
 
-  const [activeEmergencies, setActiveEmergencies] = useState<EmergencyIncident[]>([]);
-  const [allHospitals, setAllHospitals] = useState<HospitalProfile[]>([]);
-  const unsubscribeRef = useRef<(() => void) | null>(null);
-  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [activeEmergencies, setActiveEmergencies] = React.useState<EmergencyIncident[]>([]);
+  const [allHospitals, setAllHospitals] = React.useState<HospitalProfile[]>([]);
+  const unsubscribeRef = React.useRef<(() => void) | null>(null);
+  const [loginAttempts, setLoginAttempts] = React.useState(0);
 
   const isDemo = false;
 
@@ -93,7 +87,7 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
   };
 
   // --- REAL-TIME SYNC ---
-  useEffect(() => {
+  React.useEffect(() => {
     if (isDemo) {
       const saved = localStorage.getItem('cers_emergencies');
       if (saved) setActiveEmergencies(JSON.parse(saved));
@@ -127,7 +121,7 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
   }, [isDemo]);
 
   // 🏥 SYNC ALL HOSPITALS
-  useEffect(() => {
+  React.useEffect(() => {
     if (isDemo) return;
 
     const q = query(
@@ -147,7 +141,7 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
   }, [isDemo]);
 
   // Persist session
-  useEffect(() => {
+  React.useEffect(() => {
     if (currentUser) sessionStorage.setItem('cers_current_user', JSON.stringify(currentUser));
     else sessionStorage.removeItem('cers_current_user');
   }, [currentUser]);
@@ -634,7 +628,7 @@ export const EmergencyProvider: React.FC<{ children: ReactNode }> = ({ children 
 
 // Named export for the hook
 export const useEmergencySystem = () => {
-  const context = useContext(EmergencyContext);
+  const context = React.useContext(EmergencyContext);
   if (!context) throw new Error('useEmergencySystem must be used within EmergencyProvider');
   return context;
 };
